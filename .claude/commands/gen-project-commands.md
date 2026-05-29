@@ -39,7 +39,7 @@ Re-running `/gen-project-commands` overwrites all existing domain directories an
 Before generating anything, read the following. Do not guess — read the actual files.
 
 ### Test infrastructure
-- `BaseTest` — what clients are declared (`httpClient`, `dbClient`, `kafkaClient`, `mongoClient`), what their types are, what retry configs are used
+- `BaseTest` — what clients are declared (`httpClient`, `dbClient`, `kafkaClient`, `mongoClient`, and any domain-specific Kafka clients like `orderKafkaClient`), what their types are, which Kafka topics each client is configured with (first topic determines where `publish()` sends)
 - Request factory classes (`TestXxxRequests`) — every method signature, URL, HTTP method, expected status
 - Test data factory classes (`TestXxx`, `TestAddresses`, `TestCars`, etc.) — every static method and builder pattern
 - Test mapper class (`XxxTestMapper`) — every method and its direction (e.g. `UserDto → UserEntity`, `UserEntity → UserCreatedEvent`)
@@ -71,6 +71,7 @@ For each dependency found, record:
 - Which domain depends on which
 - Which specific factory method and DTO field create the dependency
 - What the dependent domain needs to call to satisfy it (e.g. `TestUserRequests.createUser()` → returns `UserDto.uuid`)
+- Whether the factory provides a `PLACEHOLDER_<DOMAIN>_ID` — note that this is **only valid for validation (400) tests**; happy-path (2xx) tests that persist to the database must create the referenced entity and use its real UUID
 
 ---
 
@@ -162,6 +163,17 @@ The rules below are specific to this project.
 <!-- for nested objects show path: address.street, cars[0].plateNumber -->
 <!-- for optional fields note they are optional -->
 
+## Learned patterns
+
+<!-- Empty at generation time. Updated after test generation sessions.
+     Record anything discovered during generation that is not derivable from source code:
+     - Mapping quirks that caused compile errors
+     - Field names that differ between DTO and entity
+     - Validation rules that behave unexpectedly
+     - Patterns that work well for this domain
+     - Patterns that were tried and failed
+-->
+
 ---
 
 Now generate the tests described in the argument: **$ARGUMENTS**
@@ -206,6 +218,16 @@ The rules below are specific to this project.
 ## Imports reference
 
 <!-- from analysis: full import list with real package names -->
+
+## Learned patterns
+
+<!-- Empty at generation time. Updated after test generation sessions.
+     Record flow-specific discoveries:
+     - State transitions that behave unexpectedly
+     - Ordering dependencies between operations
+     - Timing or consistency issues observed
+     - Patterns that work well for multi-step sequences in this domain
+-->
 
 ---
 
@@ -267,6 +289,16 @@ The rules below are specific to this project.
 
 <!-- from analysis: full import list with real package names -->
 
+## Learned patterns
+
+<!-- Empty at generation time. Updated after test generation sessions.
+     Record component-specific discoveries:
+     - Event field mismatches between publisher and consumer
+     - Kafka topic or partition quirks
+     - MongoDB collection naming or ID mapping issues
+     - Slice boundary decisions that were non-obvious
+-->
+
 ---
 
 Now generate the component tests described in the argument: **$ARGUMENTS**
@@ -327,6 +359,16 @@ The rules below are specific to this project.
 ## Imports reference
 
 <!-- from analysis: full import list with real package names -->
+
+## Learned patterns
+
+<!-- Empty at generation time. Updated after test generation sessions.
+     Record e2e-specific discoveries:
+     - Cross-system timing issues and retry config adjustments
+     - Pre-computation patterns required for destructive operations
+     - Pipeline chain decisions that were non-obvious
+     - Cross-domain setup steps that are always needed
+-->
 
 ---
 
