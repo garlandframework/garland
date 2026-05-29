@@ -1,0 +1,49 @@
+ Test environment description:
+
+ 1. Main blocks:
+ - Microservice 1 - public part of system. Has exposed API that takes input data from API user. 
+ - Postgres db. Stands togather with microservice 1, microservice stores datat= in postgres immidiately after receiving it
+ - kafka. Mikroservice 1 in parallel to savind data into db will post it to kafka stream
+ - Microservice 2 - reads data from kafka.
+ - mongodb - microservice 2 puts data that came from kafka into mongo as document
+
+
+ 2. data flows:
+  - Microservice 1 -> Postgres;
+  - Microservice 1 -> kafka -> Microservice 2 -> mongo
+
+ 3. Microservice 1 - should have full CRUD;
+ - creation of entity in microservice 1 should add it to postgres and via kafka and Microservice 2 to mongo
+ - update of entity in microservice 1 should update it in postgres and via kafka and Microservice 2 in mongo
+ - delete of entity in microservice 1 should delete it in postgres and via kafka and Microservice 2 in mongo
+ - get of entity in microservice 1 should get it from postgres
+ - get all entities in  microservice 1 should get all respective entities from postgres
+
+ 4. Microservice 2 has GET /projections/users/{id} endpoint that gets user projection from mongo by id. User projection is a document in mongo that has all data about user, including address and list of cars. This endpoint is used to check if data was correctly saved in mongo after creation or update of user in microservice 1.
+
+ 5. data format:
+ - user object with: uuid, name, surname, address, list of cars, createdAt, modifiedAt
+ - adress object with: uuid, street, city, country, zipCode. Adress it subobject of user.
+ - car object with fields: uuid, plate number, manufacturer, model.
+ - user may have 1 address and few cars. So car and address are subobject of user. car is a part of "list of cars" list. One user may have multiple cars. This is reflecred as 3 connected tables in postgres. user -> adress one to one, user -> cars: one to many.
+ - createdAt / modifiedAt - db generated
+
+6. Use separate Kafka topics per operation — user.created, user.updated, user.deleted
+ A dedicated event (UserCreatedEvent, UserUpdatedEvent,
+  UserDeletedEvent) is more realistic and gives the mapper layer something meaningful to do. Make event objects a little bit different from user entity, add some additional fields. Include all fields present in user entity but name them differently, e.g. userId instead of id, fullName instead of name and surname by concatenation of name and surname, etc. This will make the mapping layer more interesting and realistic.
+  Add a field to UserCreatedEvent / UserUpdatedEvent that has no equivalent in the user entity — something like eventTimestamp or sourceSystem. This demonstrates the constant and expression MapStruct mappings
+  and makes the event objects feel genuinely different from the entity, not just renamed.
+  UserDeletedEvent contain just userId +eventTimestamp
+
+7. "MongoDB stores user as a single document in users collection with address as an embedded object and cars as an embedded array. Not
+    3 collections — one denormalized document."
+
+8. Use docker compose to run all services and databases together. Each service and database should be in its own container.
+  - Microservice 1: 8080
+  - Microservice 2: 8081
+  - PostgreSQL: 5432
+  - Kafka: 9092
+  - MongoDB: 27017
+  - KRaft for Kafka in Docker Compose
+
+

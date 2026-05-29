@@ -1,0 +1,6 @@
+package org.modulartestorchestrator.http.model;
+
+import java.util.List;
+import java.util.Map;
+
+public record HttpCallResponse<T>(String url, int status, Map<String, List<String>> headers, T dto) {}

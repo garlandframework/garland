@@ -1,0 +1,127 @@
+Test environment connections
+===========================
+
+
+REST API — user-service (localhost:8080)
+-----------------------------------------
+
+POST /api/users — create user
+Request body:
+{
+  "name": "John",
+  "surname": "Doe",
+  "address": {
+    "street": "Baker St 221B",
+    "city": "London",
+    "country": "UK",
+    "zipCode": "NW1 6XE"
+  },
+  "cars": [
+    {
+      "plateNumber": "AB1234CD",
+      "manufacturer": "Toyota",
+      "model": "Camry"
+    }
+  ]
+}
+Response 201:
+{
+  "uuid": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "John",
+  "surname": "Doe",
+  "address": {
+    "uuid": "...",
+    "street": "Baker St 221B",
+    "city": "London",
+    "country": "UK",
+    "zipCode": "NW1 6XE"
+  },
+  "cars": [
+    {
+      "uuid": "...",
+      "plateNumber": "AB1234CD",
+      "manufacturer": "Toyota",
+      "model": "Camry"
+    }
+  ],
+  "createdAt": "2026-05-25T10:00:00",
+  "modifiedAt": "2026-05-25T10:00:00"
+}
+
+GET /api/users/{uuid} — get by id
+Response 200: same shape as above
+
+GET /api/users — get all
+Response 200: array of the above
+
+PUT /api/users/{uuid} — update (full replace)
+Request body: same shape as POST
+Response 200: updated user
+
+DELETE /api/users/{uuid}
+Response 204 No Content
+
+
+REST API — projection-service (localhost:8081)
+-----------------------------------------------
+
+GET /api/projections/users/{uuid} — get mongo projection
+Response 200:
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "fullName": "John Doe",
+  "addressInfo": {
+    "addressId": "...",
+    "streetName": "Baker St 221B",
+    "cityName": "London",
+    "countryCode": "UK",
+    "postalCode": "NW1 6XE"
+  },
+  "vehicleList": [
+    {
+      "vehicleId": "...",
+      "licensePlate": "AB1234CD",
+      "make": "Toyota",
+      "vehicleModel": "Camry"
+    }
+  ],
+  "eventTimestamp": "2026-05-25T10:00:00Z",
+  "sourceSystem": "user-service"
+}
+
+
+PostgreSQL
+----------
+Host:     localhost
+Port:     5432
+Database: userdb
+User:     user
+Password: password
+JDBC URL: jdbc:postgresql://localhost:5432/userdb
+Tables:   users, addresses, cars
+
+IDEA: Database tool window -> + -> Data Source -> PostgreSQL -> fill in above
+
+
+MongoDB
+-------
+URI:        mongodb://localhost:27017
+Database:   projectiondb
+Collection: users
+
+IDEA: Database tool window -> + -> Data Source -> MongoDB -> URI: mongodb://localhost:27017/projectiondb
+
+
+Kafka
+-----
+Bootstrap server: localhost:9092
+Topics:           user.created, user.updated, user.deleted
+Consumer group:   projection-service
+
+Consume from terminal (inside container):
+  docker exec -it kafka kafka-console-consumer \
+    --bootstrap-server localhost:9092 \
+    --topic user.created \
+    --from-beginning
+
+IDEA: install Kafka plugin (Settings -> Plugins), connect via localhost:9092
