@@ -55,16 +55,7 @@ public class HibernateWrapper implements AutoCloseable {
             CriteriaQuery<T> cq = cb.createQuery(entityClass);
             Root<T> root = cq.from(entityClass);
 
-            List<Predicate> predicates = new ArrayList<>();
-            for (Field field : entityClass.getDeclaredFields()) {
-                field.setAccessible(true);
-                Object value = field.get(example);
-                if (value != null && !(value instanceof Collection)) {
-                    predicates.add(cb.equal(root.get(field.getName()), value));
-                }
-            }
-
-            cq.where(predicates.toArray(new Predicate[0]));
+            cq.where(buildPredicates(example, root, cb).toArray(new Predicate[0]));
             List<T> results = session.createQuery(cq).getResultList();
             if (results.size() > 1) {
                 throw new IllegalStateException(
@@ -86,20 +77,28 @@ public class HibernateWrapper implements AutoCloseable {
             CriteriaQuery<Long> cq = cb.createQuery(Long.class);
             Root<T> root = cq.from(entityClass);
 
-            List<Predicate> predicates = new ArrayList<>();
-            for (Field field : entityClass.getDeclaredFields()) {
+            cq.select(cb.count(root)).where(buildPredicates(example, root, cb).toArray(new Predicate[0]));
+            return session.createQuery(cq).getSingleResult();
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static <T> List<Predicate> buildPredicates(T example, Root<T> root, CriteriaBuilder cb)
+            throws IllegalAccessException {
+        List<Predicate> predicates = new ArrayList<>();
+        Class<?> current = example.getClass();
+        while (current != null && current != Object.class) {
+            for (Field field : current.getDeclaredFields()) {
                 field.setAccessible(true);
                 Object value = field.get(example);
                 if (value != null && !(value instanceof Collection)) {
                     predicates.add(cb.equal(root.get(field.getName()), value));
                 }
             }
-
-            cq.select(cb.count(root)).where(predicates.toArray(new Predicate[0]));
-            return session.createQuery(cq).getSingleResult();
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
+            current = current.getSuperclass();
         }
+        return predicates;
     }
 
     public <T> T persist(T entity) {
