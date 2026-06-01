@@ -2,6 +2,7 @@ package org.modulartestorchestrator.base.checks;
 
 import org.modulartestorchestrator.base.StepFunction;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 
@@ -11,6 +12,10 @@ public final class Verify {
 
     public static <T> StepFunction<T, T> matching(T expected) {
         return CHECK.matchingNonNull(expected);
+    }
+
+    public static <T> StepFunction<T, T> matching(T expected, Duration temporalTolerance) {
+        return CHECK.matchingNonNull(expected, temporalTolerance);
     }
 
     public static <T> StepFunction<T, T> equalTo(T expected) {
