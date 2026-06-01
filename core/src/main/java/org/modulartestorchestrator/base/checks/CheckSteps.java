@@ -6,6 +6,12 @@ import org.modulartestorchestrator.base.StepFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -24,6 +30,7 @@ public class CheckSteps {
                     .ignoringCollectionOrder()
                     .ignoringCollectionOrderInFields()
                     .ignoringExpectedNullFields()
+                    .withComparatorForType(BigDecimal::compareTo, BigDecimal.class)
                     .isEqualTo(expected);
             log.info(CheckLogTemplates.PASSED);
             return actual;
@@ -38,6 +45,45 @@ public class CheckSteps {
                     .ignoringCollectionOrder()
                     .ignoringCollectionOrderInFields()
                     .ignoringExpectedNullFields()
+                    .withComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+                    .isEqualTo(expected);
+            log.info(CheckLogTemplates.PASSED);
+            return actual;
+        };
+    }
+
+    /**
+     * Same as matchingNonNull but temporal fields (Instant, LocalDateTime, ZonedDateTime,
+     * OffsetDateTime) are accepted if they fall within ±temporalTolerance of the expected value.
+     *
+     * Two use cases:
+     *   1. Storage precision loss — MongoDB truncates nanoseconds to milliseconds.
+     *      Use Duration.ofMillis(1).
+     *   2. SLA window for server-generated timestamps — set expected = Instant.now() at test
+     *      start, tolerance = max acceptable processing delay (e.g. Duration.ofMinutes(1.5)).
+     */
+    public <T> StepFunction<T, T> matchingNonNull(T expected, Duration temporalTolerance) {
+        long toleranceNanos = temporalTolerance.toNanos();
+        return (actual, ctx) -> {
+            log.info(CheckLogTemplates.CHECKING, toJson(expected), toJson(actual));
+            assertThat(actual)
+                    .usingRecursiveComparison()
+                    .ignoringCollectionOrder()
+                    .ignoringCollectionOrderInFields()
+                    .ignoringExpectedNullFields()
+                    .withComparatorForType(
+                            (Instant a, Instant b) -> withinTolerance(a, b, toleranceNanos),
+                            Instant.class)
+                    .withComparatorForType(
+                            (LocalDateTime a, LocalDateTime b) -> withinTolerance(a, b, toleranceNanos),
+                            LocalDateTime.class)
+                    .withComparatorForType(
+                            (ZonedDateTime a, ZonedDateTime b) -> withinTolerance(a, b, toleranceNanos),
+                            ZonedDateTime.class)
+                    .withComparatorForType(
+                            (OffsetDateTime a, OffsetDateTime b) -> withinTolerance(a, b, toleranceNanos),
+                            OffsetDateTime.class)
+                    .withComparatorForType(BigDecimal::compareTo, BigDecimal.class)
                     .isEqualTo(expected);
             log.info(CheckLogTemplates.PASSED);
             return actual;
@@ -49,7 +95,8 @@ public class CheckSteps {
             log.info(CheckLogTemplates.CHECKING, toJson(expected), toJson(actual));
             RecursiveComparisonConfiguration config = RecursiveComparisonConfiguration.builder()
                     .withIgnoreCollectionOrder(true)
-                    .withIgnoredFieldsOfTypes()
+                    .withIgnoreAllExpectedNullFields(true)
+                    .withComparatorForType(BigDecimal::compareTo, BigDecimal.class)
                     .build();
             assertThat(actual)
                     .usingRecursiveFieldByFieldElementComparator(config)
@@ -57,6 +104,26 @@ public class CheckSteps {
             log.info(CheckLogTemplates.PASSED);
             return actual;
         };
+    }
+
+    private static int withinTolerance(Instant a, Instant b, long toleranceNanos) {
+        long diffNanos = Math.abs(Duration.between(a, b).toNanos());
+        return diffNanos <= toleranceNanos ? 0 : a.compareTo(b);
+    }
+
+    private static int withinTolerance(LocalDateTime a, LocalDateTime b, long toleranceNanos) {
+        long diffNanos = Math.abs(Duration.between(a, b).toNanos());
+        return diffNanos <= toleranceNanos ? 0 : a.compareTo(b);
+    }
+
+    private static int withinTolerance(ZonedDateTime a, ZonedDateTime b, long toleranceNanos) {
+        long diffNanos = Math.abs(Duration.between(a, b).toNanos());
+        return diffNanos <= toleranceNanos ? 0 : a.compareTo(b);
+    }
+
+    private static int withinTolerance(OffsetDateTime a, OffsetDateTime b, long toleranceNanos) {
+        long diffNanos = Math.abs(Duration.between(a, b).toNanos());
+        return diffNanos <= toleranceNanos ? 0 : a.compareTo(b);
     }
 
     private static String toJson(Object obj) {

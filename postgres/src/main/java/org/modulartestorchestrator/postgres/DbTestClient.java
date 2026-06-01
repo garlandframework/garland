@@ -11,6 +11,8 @@ import org.modulartestorchestrator.postgres.model.DbResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+
 public class DbTestClient {
 
     private static final Logger log = LoggerFactory.getLogger("DB");
@@ -44,6 +46,25 @@ public class DbTestClient {
                     ))
                     .then((DbResult<T> r, PipelineContext ctx) -> r.entity())
                     .then(check.matchingNonNull(input))
+                    .execute();
+            log.info(DbTestClientLogTemplates.VERIFIED);
+            return result;
+        };
+    }
+
+    public <T> StepFunction<T, T> findById(Duration temporalTolerance) {
+        return (input, outerCtx) -> {
+            log.info(DbTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
+            T result = Pipeline.given(DbRequest.findById(input))
+                    .withContext(outerCtx)
+                    .then(dbSteps.setup())
+                    .then(Retry.of(
+                            StepFunction.<DbRequest<T>, DbResult<T>>of(dbSteps::findById)
+                                    .andThen(dbCheck.entityExists()),
+                            retryConfig
+                    ))
+                    .then((DbResult<T> r, PipelineContext ctx) -> r.entity())
+                    .then(check.matchingNonNull(input, temporalTolerance))
                     .execute();
             log.info(DbTestClientLogTemplates.VERIFIED);
             return result;

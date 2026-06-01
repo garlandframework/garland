@@ -11,6 +11,8 @@ import org.modulartestorchestrator.mongodb.model.MongoResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+
 public class MongoTestClient {
 
     private static final Logger log = LoggerFactory.getLogger("MONGO");
@@ -43,6 +45,24 @@ public class MongoTestClient {
                     ))
                     .then((MongoResult<T> r, PipelineContext ctx) -> r.document())
                     .then(check.matchingNonNull(input))
+                    .execute();
+            log.info(MongoTestClientLogTemplates.VERIFIED);
+            return result;
+        };
+    }
+
+    public <T> StepFunction<T, T> findById(Duration temporalTolerance) {
+        return (input, outerCtx) -> {
+            log.info(MongoTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
+            T result = Pipeline.given(MongoRequest.findById(input))
+                    .withContext(outerCtx)
+                    .then(Retry.of(
+                            StepFunction.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::findById)
+                                    .andThen(mongoCheck.documentExists()),
+                            retryConfig
+                    ))
+                    .then((MongoResult<T> r, PipelineContext ctx) -> r.document())
+                    .then(check.matchingNonNull(input, temporalTolerance))
                     .execute();
             log.info(MongoTestClientLogTemplates.VERIFIED);
             return result;
