@@ -1,212 +1,220 @@
-# MTO — LLM Rules
+# MTO Test Generation Rules
 
-Rules for generating tests with the Modular Test Orchestrator framework.
-Copy the relevant sections into your project's `CLAUDE.md` or skill file.
-
----
-
-## Core rule: Pipeline is the only way to write a test
-
-Every test must use `Pipeline.given(...).then(...).execute()`.
-Never call clients, steps, or assertions directly outside a pipeline.
-
-```java
-@Test
-public void createItem_persistedInDb() throws Exception {
-    Pipeline.given(request)
-            .then(httpClient.makeCall(201, ItemDto.class))
-            .then(Verify.matching(expected))
-            .then(mapper.toEntity())
-            .then(dbClient.findById())
-            .execute();
-}
-```
-
-`Pipeline.given(input)` binds the input and starts the chain.
-Each `.then(StepFunction<O, NO>)` transforms the value flowing through.
-`.execute()` runs all steps eagerly and sequentially.
-The output type changes with each step — the compiler enforces the chain is valid.
+This file is read by LLMs generating tests with the Modular Test Orchestrator framework.
+It contains rules that are non-obvious and that an LLM would get wrong without explicit guidance.
+Project-specific rules (factories, mappers, client names) live in the gen-command files.
 
 ---
 
-## StepFunction
+## 1. Core pipeline syntax
 
 ```java
-@FunctionalInterface
-(I input, PipelineContext ctx) -> O
-```
+// Basic form
+Pipeline.given(input)
+        .then(stepFunction)
+        .execute();
 
-Steps can transform data (return value) and share state via `ctx`.
-Method references that match this signature can be passed directly to `.then(...)`.
+// Capture result
+UserDto created = Pipeline.given(request)
+        .then(httpClient.makeCall(201, UserDto.class))
+        .execute();
 
----
-
-## HttpTestClient
-
-```java
-// Assert status, deserialize body to R
-httpClient.makeCall(int expectedStatus, Class<R> responseType)
-
-// Same but for generic types (List<T>, Page<T>, etc.) — use TypeReference to preserve type at runtime
-httpClient.makeCall(int expectedStatus, new TypeReference<List<ItemDto>>() {})
-
-// Assert status, headers, and body match expected response object
-httpClient.makeCall(HttpCallResponse<R> expected)
-
-// Same with temporal tolerance — for GET responses that include server-generated timestamps
-httpClient.makeCall(HttpCallResponse<R> expected, Duration temporalTolerance)
-
-// Poll until status + body match (for eventual consistency)
-httpClient.pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig)
-
-// Same with temporal tolerance — for polling GET responses that include server-generated timestamps
-httpClient.pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig, Duration temporalTolerance)
-```
-
-Input to `makeCall` steps is always `HttpCallRequest<T>`:
-```java
-new HttpCallRequest<>(url, "POST", List.of(), bodyDto)
-new HttpCallRequest<>(url, "GET",  List.of(), null)
-```
-
----
-
-## DbTestClient (Postgres / Hibernate)
-
-```java
-dbClient.findById()                          // fetch by @Id, assert exists, assert matches input
-dbClient.findById(Duration temporalTolerance) // same, with tolerance for timestamp fields
-dbClient.findByFields()                      // fetch by all non-null fields, assert exists, assert matches
-dbClient.existsById()                        // assert entity exists, passthrough input
-dbClient.notExistsById()                     // assert entity does NOT exist
-dbClient.persist(expected)                   // persist DbRequest, assert result matches expected
-dbClient.delete()                            // delete DbRequest, assert no longer exists
-```
-
-Input must be the entity class registered with `HibernateWrapper`.
-`findById` and `findByFields` both assert the fetched entity matches the input — no separate `Verify` needed.
-
-### Hibernate naming strategy
-
-The test `HibernateWrapper` does **not** apply Spring Boot's `SpringPhysicalNamingStrategy`. Java camelCase field names are mapped to column names as-is — `productName` maps to column `productName`, not `product_name`. Entity mirrors must carry explicit `@Column(name = "snake_case_name")` for any field whose production column name differs from the Java field name:
-
-```java
-@Column(name = "product_name") private String productName;
-@Column(name = "user_id")      private UUID userId;
-@Column(name = "created_at")   private LocalDateTime createdAt;
-```
-
-Only remove constraint attributes (`nullable`, `length`, `unique`) — keep the `name` attribute.
-
----
-
-## KafkaTestClient
-
-```java
-kafkaClient.consumeMatching(Class<T> type)                              // poll until matching message, assert equals input
-kafkaClient.consumeMatching(Class<T> type, Duration temporalTolerance)  // same, with tolerance for timestamp fields
-kafkaClient.consume(Class<T> type)                                      // poll and return next message of type T
-kafkaClient.consume(Class<T> type, T expected)                          // poll and assert equals expected
-kafkaClient.consume(Class<T> type, T expected, Duration temporalTolerance) // same, with tolerance
-kafkaClient.publish()                                                   // publish KafkaMessage<T> to configured topic
-```
-
-`consumeMatching` is the standard choice for verifying that a write triggered an event.
-Call `kafkaClient.warmup()` in `@BeforeSuite` before any consume calls.
-
-### Topic routing
-
-`publish()` always sends to **`topics.get(0)`** — the first topic registered in `KafkaConfig`. When a project has multiple Kafka domains (e.g. `user.created` and `order.placed`), declare a **separate `KafkaTestClient`** per domain so that `publish()` and `consumeMatching()` operate on the right topic:
-
-```java
-// user-domain client — user.created is first
-kafkaClient = new KafkaTestClient(
-        KafkaConfig.builder()
-                .bootstrapServers(...)
-                .topic("user.created")
-                .topic("user.updated")
-                .topic("user.deleted")
-                .groupId(UUID.randomUUID().toString())
-                .build(),
-        RetryConfig.of(5, Duration.ofSeconds(2))
-);
-
-// order-domain client — order.placed is first
-orderKafkaClient = new KafkaTestClient(
-        KafkaConfig.builder()
-                .bootstrapServers(...)
-                .topic("order.placed")
-                .topic("order.cancelled")
-                .groupId(UUID.randomUUID().toString())
-                .build(),
-        RetryConfig.of(5, Duration.ofSeconds(2))
-);
-```
-
-Call `warmup()` on every client in `@BeforeSuite`, and `close()` each in `@AfterSuite`.
-
----
-
-## MongoTestClient
-
-```java
-mongoClient.findById()                           // fetch by @Id, assert exists, assert matches input
-mongoClient.findById(Duration temporalTolerance)  // same, with tolerance for timestamp fields
-mongoClient.findByFields()                        // fetch by all non-null fields, assert exists, assert matches
-mongoClient.existsById()                          // assert document exists, passthrough input
-mongoClient.notExistsById()                       // assert document does NOT exist
-mongoClient.persist(expected)                     // persist MongoRequest, assert result matches expected
-mongoClient.delete()                              // delete MongoRequest, assert no longer exists
-```
-
-Input must be the document class registered with `MongoWrapper`.
-
-### Collection registration
-
-`MongoWrapper` uses explicit `.collection(Class, "name")` registration — it does **not** scan for `@Document` annotations. Test mirror document classes must **not** carry `@Document`; the collection mapping belongs in the `MongoWrapper` construction in `BaseTest`:
-
-```java
-mongo = new MongoWrapper(
-        MongoConfig.builder()
-                .connectionString(...)
-                .database(...)
-                .collection(UserProjectionDoc.class, "users")
-                .collection(OrderProjectionDoc.class, "order_projections")
-                .build()
-);
-```
-
----
-
-## Temporal tolerance
-
-All comparison steps (`findById`, `consumeMatching`, `makeCall(HttpCallResponse)`, etc.) have overloads that accept a `Duration temporalTolerance`. When temporal tolerance is set, the comparator accepts any timestamp within `±tolerance` of the expected value for `Instant`, `LocalDateTime`, `ZonedDateTime`, and `OffsetDateTime` fields. All other fields are compared exactly.
-
-Two situations that require temporal tolerance:
-
-### Storage precision truncation
-
-Some stores reduce timestamp precision when persisting:
-- MongoDB: truncates `Instant` nanoseconds to milliseconds
-- Postgres: truncates nanoseconds to microseconds (less common in practice)
-
-When the expected document was built from an event or DTO that carries full nanosecond precision, the round-trip through the store will fail exact comparison. Use `Duration.ofMillis(1)`:
-
-```java
-Pipeline.given(expectedDoc)
-        .then(mongoClient.findById(Duration.ofMillis(1)))
+// Chain multiple steps
+Pipeline.given(request)
+        .then(httpClient.makeCall(201, UserDto.class))
+        .then(UserTestMapper.toEntity())
+        .then(dbClient.findById())
         .execute();
 ```
 
-Always use the tolerance overload for `mongoClient.findById()` when the expected document contains a timestamp field that was stored in MongoDB.
+`StepFunction<I, O>` is `(I input, PipelineContext ctx) -> O`. Each step receives the previous step's output as its input. Type safety is enforced at compile time — if steps don't chain correctly, it won't compile.
 
-### SLA window for service-generated timestamps
+`execute()` runs the chain and returns the final output. Checked exceptions are wrapped in `RuntimeException` automatically.
 
-When the service sets a timestamp field to `Instant.now()` internally (e.g. `eventTimestamp`, `createdAt`, `processedAt`), the test cannot know the exact value. The correct approach is:
+---
 
-1. Capture `Instant testStart = Instant.now()` at the start of the test
-2. Set the expected timestamp field to `testStart`
-3. Use a tolerance equal to the maximum acceptable processing delay
+## 2. Fan-out verification — Verify.allOf()
+
+Use `Verify.allOf()` whenever one HTTP response triggers multiple independent side-effects that all need to be verified.
+
+```java
+Pipeline.given(TestUserRequests.createUser())
+        .then(httpClient.makeCall(201, UserDto.class))
+        .then(Verify.allOf(
+                UserTestMapper.toEntity().andThen(dbClient.findById()),
+                UserTestMapper.toCreatedEvent().andThen(kafkaClient.consumeMatching(UserCreatedEvent.class)),
+                UserTestMapper.dtoToCreatedProjectionDoc().andThen(mongoClient.findById())
+        ))
+        .execute();
+```
+
+**What allOf does:**
+- Calls every branch with the same input (the previous step's output)
+- Runs branches sequentially
+- Collects **all** failures before throwing — one `AssertionError` reports every broken branch
+- Returns the original input as passthrough, so you can chain steps after `allOf` if needed
+
+**When to use allOf vs sequential chaining:**
+
+| Situation | Use |
+|---|---|
+| Multiple systems receive the same trigger (create/update) | `Verify.allOf()` |
+| Steps have a data dependency (output of step N feeds step N+1) | Sequential `.then()` chain |
+| Post-delete verification of absence across systems | `Verify.allOf()` on the captured DTO |
+| Single system assertion | Sequential `.then()` |
+
+**Delete pattern** — the delete call returns `Void`, so fan out from the pre-delete DTO:
+
+```java
+UserDto created = Pipeline.given(TestUserRequests.createUser())
+        .then(httpClient.makeCall(201, UserDto.class))
+        .execute();
+
+Pipeline.given(TestUserRequests.deleteUser(created.getUuid()))
+        .then(httpClient.makeCall(204, Void.class))
+        .execute();
+
+// Fan out from created — verify absence in all systems
+Pipeline.given(created)
+        .then(Verify.allOf(
+                UserTestMapper.toEntity().andThen(dbClient.notExistsById()),
+                UserTestMapper.toDeletedEvent().andThen(kafkaClient.consumeMatching(UserDeletedEvent.class)),
+                UserTestMapper.dtoToCreatedProjectionDoc().andThen(mongoClient.notExistsById())
+        ))
+        .execute();
+```
+
+---
+
+## 3. StepFunction.lift and mapper bridges
+
+`StepFunction.lift(Function<I, O> fn)` wraps a plain function into a `StepFunction`. Use it when you need to compose a non-step mapping into a pipeline.
+
+**Type inference warning:** If a mapper has overloaded methods (e.g. `toEntity(UserDto)`, `toEntity(AddressDto)`, `toEntity(CarDto)`), `lift(INSTANCE::toEntity)` will not compile — Java cannot resolve the overload. Always prefer the pre-defined static bridge methods on the mapper interface:
+
+```java
+// Correct — static bridge has an unambiguous type
+UserTestMapper.toEntity()                  // StepFunction<UserDto, UserEntity>
+UserTestMapper.toCreatedEvent()            // StepFunction<UserDto, UserCreatedEvent>
+UserTestMapper.dtoToCreatedProjectionDoc() // StepFunction<UserDto, UserProjectionDoc>
+
+// Wrong — will fail to compile if toEntity() is overloaded
+StepFunction.lift(UserTestMapper.INSTANCE::toEntity)
+```
+
+Bridges are chained with `.andThen()` to build branch expressions for `allOf`:
+
+```java
+UserTestMapper.toPlacedEvent()
+        .andThen(OrderTestMapper.toProjectionDoc())
+        .andThen(mongoClient.findById(Duration.ofMillis(1)))
+```
+
+---
+
+## 4. Test DTO design — two families
+
+Tests use **two separate DTO families**. Never use the same DTO class for both purposes.
+
+### Happy-path DTOs
+Match production DTO types exactly (`UUID`, `int`, `@Email String`, enums, etc.). Used for:
+- All positive integration tests
+- Pipeline data flowing through HTTP → DB → Kafka → MongoDB
+- Object Mother / factory builders populate with Datafaker defaults
+
+### Adversarial DTOs
+Use `Object` fields (or wider types) for fields under test. Jackson serializes based on runtime type, so `Object carCount = 2.4` sends a JSON float even though the production field is `int`. Used for:
+- Validation boundary tests (400 responses)
+- Type violation tests (wrong type, null where required, over-length strings)
+
+Field type mapping for adversarial DTOs:
+
+| Production type | Adversarial type | Example test values |
+|---|---|---|
+| `int` / `long` | `Object` | `2.4`, `-999999`, `"abc"`, `null` |
+| `@Email String` | `String` (no constraint) | `"not-an-email"`, `""` |
+| `StatusEnum` | `Object` | `"INVALID_VALUE"`, `123` |
+| `UUID` | `Object` or `String` | `"not-a-uuid"`, `""` |
+| `@Size(max=N) String` | `String` (no constraint) | `"a".repeat(N+1)` |
+| `@NotNull` field | nullable | `null` |
+
+Adversarial builders have **no Datafaker defaults** — every invalid value is explicit. A test should be unambiguous about which field it is breaking.
+
+---
+
+## 5. Test data factory pattern (Object Mother)
+
+Factories follow the Object Mother pattern. Naming convention: `Test{Entity}` (not `*Repository`, not `*TestData`, not a god class).
+
+```java
+// Full valid object with Datafaker values
+TestUsers.defaultUser()
+
+// Only required fields — optional fields null/empty
+TestUsers.requiredFieldsOnlyUser()
+
+// Pre-populated builder for field-level override
+TestUsers.builder().name("Alice").build()
+```
+
+Rules:
+- `defaultUser()` delegates to `builder().build()` — no duplication
+- Factories are hierarchical: `TestUsers` internally calls `TestAddresses` and `TestCars`
+- `TestUserRequests` is separate from `TestUsers` — it wraps `HttpCallRequest<UserDto>` and must not be conflated with the data factory
+
+---
+
+## 6. DB and MongoDB assertion rules
+
+```java
+// Asserts record/document exists AND matches expected — throws if absent or mismatched
+dbClient.findById()
+mongoClient.findById()
+mongoClient.findById(Duration.ofMillis(1))  // timestamp-tolerant
+
+// Asserts exactly one match — throws if 0 or >1 results
+dbClient.findByFields()
+mongoClient.findByFields()
+
+// Returns the count of matching records/documents
+dbClient.countByFields()
+mongoClient.countByFields()
+
+// Asserts absence — throws if present
+dbClient.notExistsById()
+mongoClient.notExistsById()
+```
+
+**`findByFields()` is strict** — it throws if more than one record matches. Use it only when you expect exactly one result. For verifying a count, always use `countByFields()` chained with `Verify.equalTo(NL)`:
+
+```java
+Car template = new Car(null, null, "Toyota", null); // only non-null fields used as filter
+
+Pipeline.given(template)
+        .then(db.countByFields())
+        .then(Verify.equalTo(5L))
+        .execute();
+```
+
+Never unwrap the count outside the pipeline and assert with a bare `assertThat`.
+
+**`matchingNonNull` semantics** — `findById`, `findByFields`, `consumeMatching` all compare using `matchingNonNull`, which ignores `null` fields in the expected object. Set a field to `null` to skip asserting it. Set it to a value to assert it exactly. This is how partial matching works — pass an object with only the fields you care about non-null.
+
+---
+
+## 7. Temporal tolerance
+
+Two separate situations require temporal tolerance:
+
+### MongoDB millisecond truncation
+MongoDB stores `Instant` with millisecond precision. Any expected document containing a timestamp field must use `findById(Duration.ofMillis(1))` or the exact comparison will fail on sub-millisecond differences:
+
+```java
+mongoClient.findById(Duration.ofMillis(1))
+```
+
+### Service-generated timestamps
+When a service sets a timestamp internally (e.g. `eventTimestamp = Instant.now()`), capture the test start time and pass it as the expected value with a tolerance equal to the maximum acceptable processing delay:
 
 ```java
 Instant testStart = Instant.now();
@@ -217,330 +225,40 @@ Pipeline.given(expected)
         .execute();
 ```
 
-This simultaneously asserts that the timestamp exists (not null) and was set within the SLA window. If the event arrives with `eventTimestamp` more than 2 minutes from `testStart`, the assertion fails — which is the desired behavior when the SLA is violated.
-
-**Do not use `null` for timestamp fields when you can use temporal tolerance.** Null skips the field entirely; tolerance-aware comparison still verifies the field is present and within bounds.
+This asserts the timestamp is **present and within the SLA window** — if processing takes longer than 2 minutes, the test fails. Prefer this over passing `null` for timestamp fields: `null` skips the assertion entirely, which means a missing or corrupted timestamp would silently pass.
 
 ---
 
-## Verify (inline assertions)
+## 8. Pipeline = path through system graph
 
-```java
-Verify.matching(expected)          // recursive field-by-field equality, ignores nulls in expected
-Verify.equalTo(expected)           // strict equality
-Verify.containsAll(Collection<T>)  // list contains all expected items, order-insensitive
-```
+Each test pipeline represents one path through the system's data flow graph:
+- **Nodes** = services, Kafka topics, databases
+- **Edges** = data flows between them
 
-Use `Verify.matching` when the actual object may have server-generated fields (id, timestamps) that are absent from the expected object.
-Use `Verify.equalTo` for exact equality where no extra fields are allowed.
-Use `Verify.containsAll` for GET-all endpoints where the list may contain items from other tests.
+A well-designed test suite covers every edge at least once:
 
-`Verify.matching` uses `ignoringExpectedNullFields` — any field set to `null` in the expected object is skipped during comparison. Use this to assert partial state without pinning dynamic or irrelevant fields.
-
----
-
-## Test levels and package structure
-
-Organise tests into three levels, each in its own subpackage:
-
-| Level | Package | What it tests |
+| Test type | Path length | Example |
 |---|---|---|
-| **Endpoint** | `…domain.endpoint` | Single endpoint in isolation — happy path + all negative cases |
-| **Flow** | `…domain.flow` | Multi-step sequences within one service — state transitions, consistency across operations |
-| **Component** | `…domain.component` | Vertical slice from a specific entry point — e.g. HTTP→DB→Kafka or Kafka→MongoDB |
-| **End-to-end** | `…domain` (or `…domain.e2e`) | Full cross-system chain |
+| Endpoint test | 1 edge: client → service | `POST /users` returns 201 with correct body |
+| Component test | 2-3 edges: partial slice | HTTP → Postgres → Kafka (stops at Kafka) |
+| E2E test | Full path | HTTP → Postgres → Kafka → MongoDB |
 
-Rules per level:
-- **Endpoint**: every endpoint gets its own test class; covers all status codes, validation errors, not-found
-- **Flow**: one class per domain; no validation/error body tests; one pipeline per operation, state carried via local variables
-- **Component**: tests can start from any entry point (HTTP, Kafka, DB); each slice covers only its own boundary — stop at the output boundary, do not assert the next system's state; use dedicated test data factories that don't depend on other layers (e.g. build Kafka events directly, not via HTTP)
-- **End-to-end**: full system chain across all systems; one pipeline per logical operation; pre-compute expected state before destructive operations; no duplicate assertions already covered by lower levels
+**One pipeline per logical operation.** A "create user then delete user" test uses two pipelines: one for create, one for delete. Do not chain unrelated operations in a single pipeline.
 
-## Test class structure
-
-```java
-public class XxxApiTest extends BaseTest {
-
-    @Test
-    public void methodName_condition_expectedOutcome() throws Exception {
-        Pipeline.given(...)
-                .then(...)
-                .execute();
-    }
-}
-```
-
-- Extend the project's `BaseTest` (provides clients and lifecycle hooks)
-- All tests declare `throws Exception`
-- No `try/catch` — let failures propagate
+**State flows via local variables.** Capture the output of a setup pipeline into a typed local variable and feed it into the next pipeline. Never use `PipelineContext` to pass state between test methods or between unrelated pipelines.
 
 ---
 
-## Naming convention
+## 9. Anti-patterns
 
-**Endpoint and component tests** — `methodUnderTest_condition_expectedOutcome`:
+**Do not chain DB + Kafka sequentially when they are independent.** The old pattern `→ toEntity() → dbClient.findById() → entityToEvent() → kafkaClient.consumeMatching()` forces sequential execution and hides the fact that these are parallel side-effects. Use `Verify.allOf()` instead.
 
-| Example | Meaning |
-|---|---|
-| `createItem_persistedInDb` | happy path, verifies DB |
-| `createItem_nullName_returns400` | null required field → 400 |
-| `createItem_blankName_returns400` | blank required field → 400 |
-| `createItem_nameTooLong_returns400` | size exceeded → 400 |
-| `deleteItem_notFound` | resource does not exist → 404 |
+**Do not use separate `Pipeline.given()` blocks for post-action assertions.** Three separate pipelines for DB / Kafka / Mongo checks after a create is harder to read and fails fast on the first failure. `Verify.allOf()` collects all failures in one report.
 
-**Flow and e2e tests** — `verbNoun_thenVerbNoun_outcome` (reads as a sequence of operations):
+**Do not assert timestamps without tolerance.** An assertion on `Instant` without a tolerance is fragile — it will fail due to truncation (MongoDB) or clock precision. Always use `Duration.ofMillis(1)` for MongoDB docs and a meaningful SLA duration for service-generated timestamps.
 
-| Example | Meaning |
-|---|---|
-| `createThenGet_userRetrievable` | create followed by GET returns the same data |
-| `createThenUpdate_thenGet_returnsUpdatedData` | update is reflected in subsequent GET |
-| `createThenDelete_thenGet_returns404` | deleted resource is no longer retrievable |
-| `createUser_fullSystemFlow` | create triggers the full cross-system chain |
-| `updateUser_fullSystemFlow` | update propagates to all systems |
+**Do not use raw `assertThat` for values that come out of pipelines.** Keep assertions inside the pipeline using `Verify.matching`, `Verify.equalTo`, `Verify.containsAll`. Use `assertThat` only for assertions on data that lives entirely outside any pipeline (e.g. the `doesNotContain` list check after `Pipeline.execute()`).
 
-Use `@Test(description = "...")` for all tests. Write the description as a user story — what the system does, not what the test does: `"Creating an item persists it in the database and publishes an event"`, not `"Test create item"`.
+**Do not use `StepFunction.lift(INSTANCE::overloadedMethod)`.** If the mapper method has multiple overloads, type inference fails. Use the pre-defined static bridge on the mapper interface instead.
 
-
-
----
-
-## Happy path rule
-
-The primary happy path test must verify the end state, not just the HTTP response.
-
-- Write endpoint → chain to `dbClient.findById()` (or `mongoClient.findById()` for read models)
-- Write that publishes an event → chain to `kafkaClient.consumeMatching(...)`
-- Full flow → chain HTTP → DB → Kafka → MongoDB in one pipeline
-
-A test that only checks the HTTP response body is redundant when `findById` already performs a round-trip assertion. Only add a response-only test if it covers something the DB test cannot (response shape, headers, status nuance).
-
----
-
-## Negative test rules
-
-### Required fields (`@NotBlank` or equivalent)
-Generate **two** tests per field — blank (`""`) and null (`null`). Both must return 400.
-
-### Size limits (`@Size(max = N)` or equivalent)
-Generate **one** test per field at exactly `N + 1` characters. Must return 400.
-
-### Not-found
-For every endpoint that accepts a resource id in the path, generate one test with a random UUID. Must return 404.
-
-### Always deserialize and assert the error response body
-Never use `Void.class` for error responses. Define project-level error DTOs that mirror your API's error shape, deserialize into them, and assert with `Verify.matching`.
-
-Use `null` for fields you do not want to assert — `Verify.matching` skips them via `ignoringExpectedNullFields`. This lets you assert the field that matters (e.g. which field failed validation) without pinning dynamic content (e.g. a message containing the resource id).
-
-Two common error shapes and the assertion levels they support:
-
-**Validation errors (400)** — typically `{ status, errors: [{field, message}] }`:
-```java
-// Assert field name only — default when message is a framework string
-Verify.matching(yourErrorDto)   // where errors[0].field = "name", message = null
-
-// Assert field name + message — only when message is custom and API-contract
-Verify.matching(yourErrorDto)   // where errors[0].field = "name", message = "Name is required"
-```
-
-**Other errors (404, 409, etc.)** — typically `{ status, message }`:
-```java
-// Assert status only — default when message contains dynamic content (e.g. resource id)
-Verify.matching(yourErrorDto)   // where status = 404, message = null
-
-// Assert status + message — when message is a fixed, meaningful string
-Verify.matching(yourErrorDto)   // where status = 404, message = "Item not found"
-```
-
-Define these DTOs in your project and document the specific class names and factory methods in your project-level skill file.
-
----
-
-## Component tests
-
-Component tests verify a vertical slice of the system starting from a specific entry point — not always from HTTP. Each slice covers only the boundary of the service under test and stops at its output. The next system's state is out of scope.
-
-Two common slice patterns:
-
-### Slice 1 — HTTP entry point (write service)
-
-Verify that an HTTP operation both persists state **and** publishes the expected event. Use a single pipeline that chains HTTP → DB → Kafka in order.
-
-```java
-@Test(description = "Creating an item via HTTP persists it in the database and publishes a matching event to Kafka")
-public void createItem_persistedInDb_andPublishesKafkaEvent() throws Exception {
-    Pipeline.given(TestItemRequests.createItem())
-            .then(httpClient.makeCall(201, ItemDto.class))
-            .then(mapper.toEntity())
-            .then(dbClient.findById())
-            .then(mapper.entityToCreatedEvent())
-            .then(kafkaClient.consumeMatching(ItemCreatedEvent.class))
-            .execute();
-}
-```
-
-Stop after `kafkaClient.consumeMatching` — do not assert the read model (MongoDB, Elasticsearch, etc.). That belongs to Slice 2.
-
-### Slice 2 — Event entry point (read/projection service)
-
-Verify that publishing an event causes the downstream service to project it into the read store. Use **two separate pipelines**: one to publish the event, one to assert the projection.
-
-```java
-@Test(description = "An ItemCreated event published directly is projected into the read store by the projection service")
-public void itemCreatedEvent_projectedToReadStore() throws Exception {
-    ItemCreatedEvent event = TestEvents.defaultItemCreatedEvent();
-
-    Pipeline.given(new KafkaMessage<>(event.itemId().toString(), event))
-            .then(kafkaClient.publish())
-            .execute();
-
-    ItemProjectionDoc expected = mapper.toProjectionDoc(event);
-    Pipeline.given(expected)
-            .then(mongoClient.findById())
-            .execute();
-}
-```
-
-Do not call HTTP to produce the event — build it directly from a dedicated test data factory (`TestEvents` or equivalent). This removes the write service as a dependency and lets the projection service team own the test independently.
-
-### Test data factory independence
-
-The event factory for Slice 2 must build events from scratch (datafaker, fixed values, etc.) without relying on any other service or HTTP layer. If the factory calls HTTP to create a resource first, you have inadvertently reintroduced a cross-service dependency.
-
-### Sequential execution
-
-Component tests that share a messaging topic with other test levels must run sequentially to prevent event contamination. Configure `thread-count="1"` or `parallel="false"` in your test runner config, or annotate the class with the equivalent single-threaded annotation.
-
-### Rules
-
-- **Slice 1 stops at its output boundary** — if the service publishes to Kafka, stop there; do not assert the read model
-- **Slice 2 starts at the event** — never derive the event from an HTTP call; use an independent factory
-- **Two pipelines in event-entry slices** — publish is one pipeline, assertion is a separate pipeline
-- **No validation or error body tests** — those belong in endpoint tests
-- **Each slice is owned by the team that owns the boundary** — Slice 1 by the write-service team, Slice 2 by the projection/read-service team
-
----
-
-## End-to-end tests
-
-E2e tests verify the full cross-system chain from the HTTP entry point through all downstream systems. The number of pipelines depends on the operation — not all e2e tests fit in a single pipeline.
-
-### Create — single pipeline walks the full chain
-
-Each step's output feeds the next, so the whole chain is one pipeline:
-
-```java
-@Test(description = "Creating an item triggers the full system flow: persisted in DB, event published to Kafka, projected to read store")
-public void createItem_fullSystemFlow() throws Exception {
-    Pipeline.given(TestItemRequests.createItem())
-            .then(httpClient.makeCall(201, ItemDto.class))
-            .then(mapper.toEntity())
-            .then(dbClient.findById())
-            .then(mapper.entityToCreatedEvent())
-            .then(kafkaClient.consumeMatching(ItemCreatedEvent.class))
-            .then(mapper.toProjectionDoc())
-            .then(mongoClient.findById())
-            .execute();
-}
-```
-
-### Update — two pipelines: setup then assert
-
-The setup (create) is a separate pipeline. Its result is captured and reused in the update pipeline:
-
-```java
-@Test(description = "Updating an item propagates to DB, Kafka, and the read store")
-public void updateItem_fullSystemFlow() throws Exception {
-    ItemDto created = Pipeline.given(TestItemRequests.createItem())
-            .then(httpClient.makeCall(201, ItemDto.class))
-            .execute();
-
-    Pipeline.given(TestItemRequests.updateItem(created.getId(), TestItems.defaultItem()))
-            .then(httpClient.makeCall(200, ItemDto.class))
-            .then(mapper.toEntity())
-            .then(dbClient.findById())
-            .then(mapper.entityToUpdatedEvent())
-            .then(kafkaClient.consumeMatching(ItemUpdatedEvent.class))
-            .then(mapper.toUpdatedProjectionDoc())
-            .then(mongoClient.findById())
-            .execute();
-}
-```
-
-### Delete — one pipeline per assertion
-
-Delete assertions are independent (DB absence, Kafka event, read store absence) and cannot be chained linearly. Each becomes its own pipeline. Pre-compute the expected entity and doc **before** the delete — the live data is gone after it:
-
-```java
-@Test(description = "Deleting an item removes it from DB, publishes an event to Kafka, and removes the projection from the read store")
-public void deleteItem_fullSystemFlow() throws Exception {
-    ItemDto created = Pipeline.given(TestItemRequests.createItem())
-            .then(httpClient.makeCall(201, ItemDto.class))
-            .execute();
-
-    // Pre-compute before the delete — live data will be gone after
-    ItemEntity expectedEntity = mapper.INSTANCE.toEntity(created);
-    ItemProjectionDoc expectedDoc = mapper.INSTANCE.toProjectionDoc(
-            mapper.INSTANCE.toCreatedEvent(created));
-
-    Pipeline.given(TestItemRequests.deleteItem(created.getId()))
-            .then(httpClient.makeCall(204, Void.class))
-            .execute();
-
-    Pipeline.given(expectedEntity)
-            .then(dbClient.notExistsById())
-            .execute();
-
-    Pipeline.given(new ItemDeletedEvent(created.getId(), null))
-            .then(kafkaClient.consumeMatching(ItemDeletedEvent.class))
-            .execute();
-
-    Pipeline.given(expectedDoc)
-            .then(mongoClient.notExistsById())
-            .execute();
-}
-```
-
-For server-generated timestamps (e.g. `eventTimestamp`) prefer temporal tolerance over `null` — see the **Temporal tolerance** section. `null` skips the field entirely; tolerance-aware comparison still verifies the field is present and within an acceptable window. Use `null` only for truly non-deterministic fields that cannot be bounded.
-
-### Rules
-
-- **Assert all systems** — an e2e test that skips Kafka or the read store is a component test
-- **One pipeline per logical operation** — do not chain create→delete in one pipeline
-- **Pre-compute expected state before destructive operations** — capture the entity and projection doc before calling delete
-- **No validation or error tests** — those belong in endpoint tests
-
----
-
-## Cross-domain foreign key fields
-
-When a domain's request DTO references an entity from another domain (e.g. `OrderRequest.userId`), a `PLACEHOLDER_<DOMAIN>_ID` constant is generated for use in test factories. This placeholder is **only valid for validation (400) tests** where the service rejects the request at the bean-validation layer before reaching the database.
-
-For any test that expects a successful (2xx) response and persists data, the referenced entity must exist. Create it first in a setup pipeline and use its real ID:
-
-```java
-// wrong for happy-path tests — service rejects with 404 if userId doesn't exist
-Pipeline.given(TestOrderRequests.placeOrder(TestOrders.defaultOrder()))  // uses PLACEHOLDER_USER_ID
-        .then(httpClient.makeCall(201, OrderDto.class))
-        .execute();
-
-// correct — create the user first, use the real UUID
-UserDto user = Pipeline.given(TestUserRequests.createUser())
-        .then(httpClient.makeCall(201, UserDto.class))
-        .execute();
-Pipeline.given(TestOrderRequests.placeOrder(TestOrders.builder().userId(user.getUuid()).build()))
-        .then(httpClient.makeCall(201, OrderDto.class))
-        .execute();
-```
-
----
-
-## Retry and eventual consistency
-
-Clients are constructed with a `RetryConfig` that controls how many times a step is retried before failing. For async flows (Kafka consumers, read models populated asynchronously), use a higher retry count and longer interval:
-
-```java
-RetryConfig.of(10, Duration.ofSeconds(2))  // 10 attempts, 2s apart
-```
-
-`pollingCall` on `HttpTestClient` is for cases where the HTTP response itself is eventually consistent.
+**Do not use `PLACEHOLDER_USER_ID` in happy-path tests that persist to the database.** The placeholder is only valid for validation (400) tests where the service rejects the request before hitting the DB. Happy-path tests must create the referenced entity in a setup pipeline first.
