@@ -15,6 +15,7 @@ public class KafkaConsumerWrapper {
 
     private final KafkaConsumer<String, String> consumer;
     private final String topic;
+    private volatile boolean warmedUp = false;
 
     public KafkaConsumerWrapper(KafkaConfig config) {
         Properties props = new Properties();
@@ -32,6 +33,11 @@ public class KafkaConsumerWrapper {
     }
 
     public Optional<ConsumerRecord<String, String>> poll(Duration timeout) {
+        if (!warmedUp) {
+            throw new IllegalStateException(
+                    "KafkaConsumerWrapper: call warmup() before consuming messages — " +
+                    "AUTO_OFFSET_RESET=latest requires partition assignment to be established first");
+        }
         ConsumerRecords<String, String> records = consumer.poll(timeout);
         for (ConsumerRecord<String, String> record : records) {
             return Optional.of(record);
@@ -44,6 +50,7 @@ public class KafkaConsumerWrapper {
         while (consumer.assignment().isEmpty()) {
             consumer.poll(Duration.ofMillis(500));
         }
+        warmedUp = true;
     }
 
     public void close() {
