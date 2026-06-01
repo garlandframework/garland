@@ -37,6 +37,12 @@ public class DbConfig {
         public Builder entity(Class<?> entity)    { entities.add(entity);     return this; }
 
         public DbConfig build() {
+            if (url == null || url.isBlank())
+                throw new IllegalStateException("DbConfig: url is required");
+            if (username == null || username.isBlank())
+                throw new IllegalStateException("DbConfig: username is required");
+            if (entities.isEmpty())
+                throw new IllegalStateException("DbConfig: at least one entity class is required");
             return new DbConfig(this);
         }
     }

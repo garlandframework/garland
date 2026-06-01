@@ -46,6 +46,12 @@ public class MongoConfig {
         }
 
         public MongoConfig build() {
+            if (connectionString == null || connectionString.isBlank())
+                throw new IllegalStateException("MongoConfig: connectionString is required");
+            if (database == null || database.isBlank())
+                throw new IllegalStateException("MongoConfig: database is required");
+            if (collections.isEmpty())
+                throw new IllegalStateException("MongoConfig: at least one collection mapping is required");
             return new MongoConfig(this);
         }
     }
