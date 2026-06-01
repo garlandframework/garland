@@ -22,10 +22,6 @@ public interface StepFunction<I, O> {
         };
     }
 
-    default O execute(I input) throws Exception {
-        return apply(input, new PipelineContext());
-    }
-
     default <R> StepFunction<I, R> andThen(StepFunction<O, R> next) {
         return (input, ctx) -> next.apply(this.apply(input, ctx), ctx);
     }
