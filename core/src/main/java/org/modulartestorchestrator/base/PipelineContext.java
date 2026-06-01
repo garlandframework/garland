@@ -1,5 +1,6 @@
 package org.modulartestorchestrator.base;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,6 +22,6 @@ public class PipelineContext {
     }
 
     public Map<String, Object> raw() {
-        return data;
+        return Collections.unmodifiableMap(data);
     }
 }
