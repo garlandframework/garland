@@ -190,16 +190,18 @@ Apply the following standard test adaptations. These are always applied — do n
 **Entity mirrors:**
 - Keep `@Id` field and its `@GeneratedValue` if present
 - Remove JPA lifecycle annotations (`@PrePersist`, `@PreUpdate`, `@EntityListeners` etc.)
-- Remove `@Column` constraint attributes (nullable=false, length, unique) — test entities are permissive
+- Remove `@Column` constraint attributes (`nullable=false`, `length`, `unique`) — test entities are permissive
+- **Preserve `@Column(name = "...")` name mappings** — the test `HibernateWrapper` does not apply Spring Boot's naming strategy, so camelCase fields that map to snake_case columns (`productName` → `product_name`) require an explicit `name` attribute
 - Keep `@OneToOne`, `@OneToMany`, `@ManyToOne` for structural context
 
 **Document mirrors:**
-- Keep `@Document` annotation with collection name
+- **Remove `@Document`** — collection names are registered via `MongoWrapper.collection(Class, "name")` in `BaseTest`, not via annotation scanning (the test module typically does not have Spring Data MongoDB on the classpath)
 - Remove index annotations (`@Indexed`, `@CompoundIndex` etc.)
 
 **Cross-domain foreign key fields:**
 - Keep as UUID with no reference to the other domain's class
 - Factories use a static `PLACEHOLDER_<DOMAIN>_ID = UUID.fromString("...")` constant
+- **The placeholder is only valid for validation (400) tests** where the service rejects at the annotation layer. Any test that expects a successful (2xx) response and persists data must create the referenced entity first and use its real UUID — services validate FK existence at the database or service layer
 
 ---
 
@@ -235,7 +237,8 @@ Generate the following files:
 
 **Infrastructure** (only if not already present — do not overwrite existing BaseTest or Connections):
 - `infrastructure/BaseTest.java` — declares clients for declared protocols; `@BeforeSuite` wires
-  them from Connections; `@AfterSuite` closes them; `kafkaClient.warmup()` if Kafka declared
+  them from Connections; `@AfterSuite` closes them; `kafkaClient.warmup()` if Kafka declared.
+  **When adding Kafka for a second (or Nth) domain to an existing BaseTest**: do not add the new domain's topics to the existing `kafkaClient`. Instead, declare a separate `<domain>KafkaClient` field with that domain's topics listed first — `publish()` always sends to the first registered topic, so mixing topics from multiple domains in one client will route publishes to the wrong topic.
 - `infrastructure/Connections.java` — one constant per URL/topic/credential; multi-environment
   switch on `System.getProperty("env", "local")`:
 

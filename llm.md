@@ -79,6 +79,18 @@ dbClient.delete()          // delete DbRequest, assert no longer exists
 Input must be the entity class registered with `HibernateWrapper`.
 `findById` and `findByFields` both assert the fetched entity matches the input — no separate `Verify` needed.
 
+### Hibernate naming strategy
+
+The test `HibernateWrapper` does **not** apply Spring Boot's `SpringPhysicalNamingStrategy`. Java camelCase field names are mapped to column names as-is — `productName` maps to column `productName`, not `product_name`. Entity mirrors must carry explicit `@Column(name = "snake_case_name")` for any field whose production column name differs from the Java field name:
+
+```java
+@Column(name = "product_name") private String productName;
+@Column(name = "user_id")      private UUID userId;
+@Column(name = "created_at")   private LocalDateTime createdAt;
+```
+
+Only remove constraint attributes (`nullable`, `length`, `unique`) — keep the `name` attribute.
+
 ---
 
 ## KafkaTestClient
@@ -92,6 +104,37 @@ kafkaClient.publish()                       // publish KafkaMessage<T> to config
 
 `consumeMatching` is the standard choice for verifying that a write triggered an event.
 Call `kafkaClient.warmup()` in `@BeforeSuite` before any consume calls.
+
+### Topic routing
+
+`publish()` always sends to **`topics.get(0)`** — the first topic registered in `KafkaConfig`. When a project has multiple Kafka domains (e.g. `user.created` and `order.placed`), declare a **separate `KafkaTestClient`** per domain so that `publish()` and `consumeMatching()` operate on the right topic:
+
+```java
+// user-domain client — user.created is first
+kafkaClient = new KafkaTestClient(
+        KafkaConfig.builder()
+                .bootstrapServers(...)
+                .topic("user.created")
+                .topic("user.updated")
+                .topic("user.deleted")
+                .groupId(UUID.randomUUID().toString())
+                .build(),
+        RetryConfig.of(5, Duration.ofSeconds(2))
+);
+
+// order-domain client — order.placed is first
+orderKafkaClient = new KafkaTestClient(
+        KafkaConfig.builder()
+                .bootstrapServers(...)
+                .topic("order.placed")
+                .topic("order.cancelled")
+                .groupId(UUID.randomUUID().toString())
+                .build(),
+        RetryConfig.of(5, Duration.ofSeconds(2))
+);
+```
+
+Call `warmup()` on every client in `@BeforeSuite`, and `close()` each in `@AfterSuite`.
 
 ---
 
@@ -107,6 +150,21 @@ mongoClient.delete()          // delete MongoRequest, assert no longer exists
 ```
 
 Input must be the document class registered with `MongoWrapper`.
+
+### Collection registration
+
+`MongoWrapper` uses explicit `.collection(Class, "name")` registration — it does **not** scan for `@Document` annotations. Test mirror document classes must **not** carry `@Document`; the collection mapping belongs in the `MongoWrapper` construction in `BaseTest`:
+
+```java
+mongo = new MongoWrapper(
+        MongoConfig.builder()
+                .connectionString(...)
+                .database(...)
+                .collection(UserProjectionDoc.class, "users")
+                .collection(OrderProjectionDoc.class, "order_projections")
+                .build()
+);
+```
 
 ---
 
@@ -396,6 +454,29 @@ public void deleteItem_fullSystemFlow() throws Exception {
 - **One pipeline per logical operation** — do not chain create→delete in one pipeline
 - **Pre-compute expected state before destructive operations** — capture the entity and projection doc before calling delete
 - **No validation or error tests** — those belong in endpoint tests
+
+---
+
+## Cross-domain foreign key fields
+
+When a domain's request DTO references an entity from another domain (e.g. `OrderRequest.userId`), a `PLACEHOLDER_<DOMAIN>_ID` constant is generated for use in test factories. This placeholder is **only valid for validation (400) tests** where the service rejects the request at the bean-validation layer before reaching the database.
+
+For any test that expects a successful (2xx) response and persists data, the referenced entity must exist. Create it first in a setup pipeline and use its real ID:
+
+```java
+// wrong for happy-path tests — service rejects with 404 if userId doesn't exist
+Pipeline.given(TestOrderRequests.placeOrder(TestOrders.defaultOrder()))  // uses PLACEHOLDER_USER_ID
+        .then(httpClient.makeCall(201, OrderDto.class))
+        .execute();
+
+// correct — create the user first, use the real UUID
+UserDto user = Pipeline.given(TestUserRequests.createUser())
+        .then(httpClient.makeCall(201, UserDto.class))
+        .execute();
+Pipeline.given(TestOrderRequests.placeOrder(TestOrders.builder().userId(user.getUuid()).build()))
+        .then(httpClient.makeCall(201, OrderDto.class))
+        .execute();
+```
 
 ---
 
