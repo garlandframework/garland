@@ -22,9 +22,8 @@ public class KafkaProducerWrapper {
         this.topic    = config.topic();
     }
 
-    public void send(String key, String value) {
-        producer.send(new ProducerRecord<>(topic, key, value));
-        producer.flush();
+    public void send(String key, String value) throws Exception {
+        producer.send(new ProducerRecord<>(topic, key, value)).get();
     }
 
     public void close() {
