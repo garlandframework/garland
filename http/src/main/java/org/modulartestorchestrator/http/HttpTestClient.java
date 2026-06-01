@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.List;
 
 public class HttpTestClient {
@@ -45,6 +46,24 @@ public class HttpTestClient {
             R result = Pipeline.given(request)
                     .withContext(outerCtx)
                     .then(Retry.of(buildCallAndCheck(responseType, expected.status(), expectedHeaders, expected.dto()), retryConfig))
+                    .execute();
+            log.info(HttpTestClientLogTemplates.VERIFIED);
+            return result;
+        };
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T, R> StepFunction<HttpCallRequest<T>, R> makeCall(HttpCallResponse<R> expected, Duration temporalTolerance) {
+        Class<R> responseType = (Class<R>) expected.dto().getClass();
+        List<Header> expectedHeaders = expected.headers().entrySet().stream()
+                .flatMap(e -> e.getValue().stream().map(v -> new Header(e.getKey(), v)))
+                .toList();
+
+        return (request, outerCtx) -> {
+            log.info(HttpTestClientLogTemplates.CALL, request.method(), request.url());
+            R result = Pipeline.given(request)
+                    .withContext(outerCtx)
+                    .then(Retry.of(buildCallAndCheck(responseType, expected.status(), expectedHeaders, expected.dto(), temporalTolerance), retryConfig))
                     .execute();
             log.info(HttpTestClientLogTemplates.VERIFIED);
             return result;
@@ -87,6 +106,22 @@ public class HttpTestClient {
                 .execute();
     }
 
+    @SuppressWarnings("unchecked")
+    public <T, R> StepFunction<HttpCallRequest<T>, R> pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig, Duration temporalTolerance) {
+        Class<R> responseType = (Class<R>) expectedDto.getClass();
+        return (request, outerCtx) -> Pipeline.given(request)
+                .withContext(outerCtx)
+                .then(Retry.of(
+                        StepFunction.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
+                                .andThen(httpCheck.statusCode(expectedStatus))
+                                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(responseType, ctx))
+                                .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
+                                .andThen(check.matchingNonNull(expectedDto, temporalTolerance)),
+                        retryConfig
+                ))
+                .execute();
+    }
+
     private <T, R> StepFunction<HttpCallRequest<T>, R> buildCallAndCheck(
             Class<R> responseType, int expectedStatus, List<Header> expectedHeaders, R expectedDto) {
 
@@ -97,6 +132,18 @@ public class HttpTestClient {
                 .andThen(httpCheck.headersContain(expectedHeaders))
                 .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
                 .andThen(check.matchingNonNull(expectedDto));
+    }
+
+    private <T, R> StepFunction<HttpCallRequest<T>, R> buildCallAndCheck(
+            Class<R> responseType, int expectedStatus, List<Header> expectedHeaders, R expectedDto, Duration temporalTolerance) {
+
+        return StepFunction
+                .<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
+                .andThen(httpCheck.statusCode(expectedStatus))
+                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(responseType, ctx))
+                .andThen(httpCheck.headersContain(expectedHeaders))
+                .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
+                .andThen(check.matchingNonNull(expectedDto, temporalTolerance));
     }
 
     private <T, R> StepFunction<HttpCallRequest<T>, R> buildCallWithStatusCheck(int expectedStatus, Class<R> responseType) {
