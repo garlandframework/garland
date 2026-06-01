@@ -39,12 +39,10 @@ public class Main {
         var retryConfig     = RetryConfig.of(3, Duration.ofSeconds(2));
 
         var callWithStatusCheck = StepFunction
-                .<String, HttpResponse<String>>of((body, ctx) -> httpSteps.call(body, ctx))
+                .<HttpCallRequest<RequestDto>, HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(200));
 
         PostResponse result = Pipeline.given(request)
-                .then(httpSteps.setup())
-                .then(httpSteps::serialize)
                 .then(Retry.of(callWithStatusCheck, retryConfig))
                 .then((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(PostResponse.class, ctx))
                 .then(httpCheck.headersContain(expectedHeaders))
@@ -54,7 +52,7 @@ public class Main {
         System.out.println("[partial retry] RESULT: " + result);
     }
 
-    // The entire post-serialize chain is retried as one unit:
+    // The entire call chain is retried as one unit:
     // if any check (status, headers, body) fails, the call is re-issued from scratch.
     private static void fullRetryExample() throws Exception {
         HttpSteps httpSteps         = new HttpSteps();
@@ -67,7 +65,7 @@ public class Main {
         var retryConfig     = RetryConfig.of(3, Duration.ofSeconds(2));
 
         var fullCallAndCheck = StepFunction
-                .<String, HttpResponse<String>>of((body, ctx) -> httpSteps.call(body, ctx))
+                .<HttpCallRequest<RequestDto>, HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(200))
                 .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(PostResponse.class, ctx))
                 .andThen(httpCheck.headersContain(expectedHeaders))
@@ -75,8 +73,6 @@ public class Main {
                 .andThen(check.equalTo(expectedBody));
 
         PostResponse result = Pipeline.given(request)
-                .then(httpSteps.setup())
-                .then(httpSteps::serialize)
                 .then(Retry.of(fullCallAndCheck, retryConfig))
                 .execute();
         System.out.println("[full retry] RESULT: " + result);

@@ -19,38 +19,17 @@ public class HttpSteps {
     private final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
     private final HttpClientWrapper http = new HttpClientWrapper();
 
-    // 0. unpack HttpCallRequest into context, pass dto downstream
-    public <T> StepFunction<HttpCallRequest<T>, T> setup() {
-        return (request, ctx) -> {
-            ctx.put("url", request.url());
-            ctx.put("method", request.method());
-            ctx.put("headers", request.headers());
-            return request.dto();
-        };
-    }
+    public <T> java.net.http.HttpResponse<String> call(HttpCallRequest<T> request, PipelineContext ctx) throws Exception {
+        String body = mapper.writeValueAsString(request.dto());
+        String method = request.method();
+        String url = request.url();
+        List<Header> headers = request.headers();
 
-    // 1. serialize
-    public String serialize(Object input, PipelineContext ctx) throws Exception {
-
-        String json = mapper.writeValueAsString(input);
-
-        ctx.put("body", json);
-
-        return json;
-    }
-
-    // 2. send request
-    public java.net.http.HttpResponse<String> call(Object input, PipelineContext ctx) throws Exception {
-
-        String method = ctx.get("method");
-        String url = ctx.get("url");
-        String body = ctx.get("body");
-        List<Header> headers = ctx.get("headers");
+        ctx.put("url", url);
 
         log.info(HttpStepsLogTemplates.REQUEST_CURL, CurlBuilder.from(method, url, headers, body));
 
-        java.net.http.HttpResponse<String> response =
-                http.send(method, url, body, headers);
+        java.net.http.HttpResponse<String> response = http.send(method, url, body, headers);
 
         log.info(HttpStepsLogTemplates.RESPONSE_RECEIVED, response.statusCode(), response.body());
 
@@ -59,9 +38,7 @@ public class HttpSteps {
         return response;
     }
 
-    // 3. deserialize
     public <T> HttpCallResponse<T> deserialize(Class<T> type, PipelineContext ctx) throws Exception {
-
         java.net.http.HttpResponse<String> response = ctx.get("response");
         String url = ctx.get("url");
 
