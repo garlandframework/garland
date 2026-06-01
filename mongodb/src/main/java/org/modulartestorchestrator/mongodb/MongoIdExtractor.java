@@ -3,11 +3,11 @@ package org.modulartestorchestrator.mongodb;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 
-final class MongoIdExtractor {
+public final class MongoIdExtractor {
 
     private MongoIdExtractor() {}
 
-    static Object extractId(Object document) {
+    public static Object extractId(Object document) {
         Field field = findIdField(document.getClass());
         field.setAccessible(true);
         try {
@@ -17,7 +17,7 @@ final class MongoIdExtractor {
         }
     }
 
-    static boolean isIdField(Field field) {
+    public static boolean isIdField(Field field) {
         if (field.getName().equals("id")) return true;
         for (Annotation annotation : field.getAnnotations()) {
             if (annotation.annotationType().getSimpleName().equals("Id")) return true;
@@ -25,7 +25,7 @@ final class MongoIdExtractor {
         return false;
     }
 
-    static Field findIdField(Class<?> clazz) {
+    public static Field findIdField(Class<?> clazz) {
         for (Field field : clazz.getDeclaredFields()) {
             if (isIdField(field)) return field;
         }
