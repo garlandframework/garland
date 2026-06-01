@@ -130,7 +130,7 @@ public class MongoTestClient {
         };
     }
 
-    public <T> StepFunction<T, Void> notExistsById() {
+    public <T> StepFunction<T, T> notExistsById() {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.NOT_EXISTS, input.getClass().getSimpleName());
             Pipeline.given(MongoRequest.findById(input))
@@ -139,7 +139,7 @@ public class MongoTestClient {
                     .then(mongoCheck.documentNotExists())
                     .execute();
             log.info(MongoTestClientLogTemplates.ABSENT);
-            return null;
+            return input;
         };
     }
 

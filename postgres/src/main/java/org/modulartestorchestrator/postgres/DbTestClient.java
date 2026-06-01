@@ -130,7 +130,7 @@ public class DbTestClient {
         };
     }
 
-    public <T> StepFunction<T, Void> notExistsById() {
+    public <T> StepFunction<T, T> notExistsById() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.NOT_EXISTS, input.getClass().getSimpleName());
             Pipeline.given(DbRequest.exists(input))
@@ -139,7 +139,7 @@ public class DbTestClient {
                     .then(dbCheck.entityNotExists())
                     .execute();
             log.info(DbTestClientLogTemplates.ABSENT);
-            return null;
+            return input;
         };
     }
 
