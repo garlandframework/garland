@@ -43,16 +43,18 @@ public class KafkaTestClient {
     public <I, T> StepFunction<I, T> consume(Class<T> type, T expected) {
         return (input, outerCtx) -> Pipeline.given(input)
                 .withContext(outerCtx)
-                .then(Retry.of(kafkaSteps.consume(type), retryConfig))
-                .then(check.matchingNonNull(expected))
+                .then(Retry.of(
+                        kafkaSteps.<I, T>consume(type).andThen(check.matchingNonNull(expected)),
+                        retryConfig))
                 .execute();
     }
 
     public <I, T> StepFunction<I, T> consume(Class<T> type, T expected, Duration temporalTolerance) {
         return (input, outerCtx) -> Pipeline.given(input)
                 .withContext(outerCtx)
-                .then(Retry.of(kafkaSteps.consume(type), retryConfig))
-                .then(check.matchingNonNull(expected, temporalTolerance))
+                .then(Retry.of(
+                        kafkaSteps.<I, T>consume(type).andThen(check.matchingNonNull(expected, temporalTolerance)),
+                        retryConfig))
                 .execute();
     }
 
