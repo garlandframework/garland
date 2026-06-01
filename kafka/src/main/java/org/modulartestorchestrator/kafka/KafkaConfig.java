@@ -24,6 +24,12 @@ public record KafkaConfig(String bootstrapServers, List<String> topics, String g
         public Builder groupId(String groupId)                    { this.groupId = groupId;                   return this; }
 
         public KafkaConfig build() {
+            if (bootstrapServers == null || bootstrapServers.isBlank())
+                throw new IllegalStateException("KafkaConfig: bootstrapServers is required");
+            if (topics.isEmpty())
+                throw new IllegalStateException("KafkaConfig: at least one topic is required");
+            if (groupId == null || groupId.isBlank())
+                throw new IllegalStateException("KafkaConfig: groupId is required");
             return new KafkaConfig(bootstrapServers, List.copyOf(topics), groupId);
         }
     }
