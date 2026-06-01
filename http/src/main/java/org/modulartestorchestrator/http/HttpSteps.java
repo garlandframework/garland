@@ -25,43 +25,33 @@ public class HttpSteps {
         String url = request.url();
         List<Header> headers = request.headers();
 
-        ctx.put("url", url);
-
         log.info(HttpStepsLogTemplates.REQUEST_CURL, CurlBuilder.from(method, url, headers, body));
 
         java.net.http.HttpResponse<String> response = http.send(method, url, body, headers);
 
         log.info(HttpStepsLogTemplates.RESPONSE_RECEIVED, response.statusCode(), response.body());
 
-        ctx.put("response", response);
-
         return response;
     }
 
-    public <T> HttpCallResponse<T> deserialize(Class<T> type, PipelineContext ctx) throws Exception {
-        java.net.http.HttpResponse<String> response = ctx.get("response");
-        String url = ctx.get("url");
-
+    public <T> HttpCallResponse<T> deserialize(java.net.http.HttpResponse<String> response, Class<T> type) throws Exception {
         String body = response.body();
         T dto = (type == Void.class || body == null || body.isBlank())
                 ? null
                 : mapper.readValue(body, type);
-
-        return new HttpCallResponse<>(url, response.statusCode(), response.headers().map(), dto);
+        return new HttpCallResponse<>(response.statusCode(), response.headers().map(), dto);
     }
 
     public <T> StepFunction<java.net.http.HttpResponse<String>, HttpCallResponse<T>> deserialize(Class<T> type) {
-        return (response, ctx) -> deserialize(type, ctx);
+        return (response, ctx) -> deserialize(response, type);
     }
 
-    public <T> HttpCallResponse<T> deserialize(TypeReference<T> typeRef, PipelineContext ctx) throws Exception {
-        java.net.http.HttpResponse<String> response = ctx.get("response");
-        String url = ctx.get("url");
+    public <T> HttpCallResponse<T> deserialize(java.net.http.HttpResponse<String> response, TypeReference<T> typeRef) throws Exception {
         String body = response.body();
         T dto = (body == null || body.isBlank())
                 ? null
                 : mapper.readValue(body, typeRef);
-        return new HttpCallResponse<>(url, response.statusCode(), response.headers().map(), dto);
+        return new HttpCallResponse<>(response.statusCode(), response.headers().map(), dto);
     }
 
     public static <T> StepFunction<HttpCallResponse<T>, T> extractDto() {

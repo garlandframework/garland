@@ -98,7 +98,7 @@ public class HttpTestClient {
                 .then(Retry.of(
                         StepFunction.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                                 .andThen(httpCheck.statusCode(expectedStatus))
-                                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(responseType, ctx))
+                                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
                                 .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
                                 .andThen(check.matchingNonNull(expectedDto)),
                         retryConfig
@@ -114,7 +114,7 @@ public class HttpTestClient {
                 .then(Retry.of(
                         StepFunction.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                                 .andThen(httpCheck.statusCode(expectedStatus))
-                                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(responseType, ctx))
+                                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
                                 .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
                                 .andThen(check.matchingNonNull(expectedDto, temporalTolerance)),
                         retryConfig
@@ -128,7 +128,7 @@ public class HttpTestClient {
         return StepFunction
                 .<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(expectedStatus))
-                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(responseType, ctx))
+                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
                 .andThen(httpCheck.headersContain(expectedHeaders))
                 .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
                 .andThen(check.matchingNonNull(expectedDto));
@@ -140,7 +140,7 @@ public class HttpTestClient {
         return StepFunction
                 .<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(expectedStatus))
-                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(responseType, ctx))
+                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
                 .andThen(httpCheck.headersContain(expectedHeaders))
                 .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
                 .andThen(check.matchingNonNull(expectedDto, temporalTolerance));
@@ -150,7 +150,7 @@ public class HttpTestClient {
         return StepFunction
                 .<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(expectedStatus))
-                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(responseType, ctx))
+                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
                 .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto());
     }
 
@@ -158,7 +158,7 @@ public class HttpTestClient {
         return StepFunction
                 .<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(expectedStatus))
-                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(typeRef, ctx))
+                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, typeRef))
                 .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto());
     }
 }
