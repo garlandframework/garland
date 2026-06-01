@@ -13,7 +13,7 @@ import java.util.Map;
 public class HttpBinPostTest extends BaseTest {
 
     @Test
-    public void postEchoesRequestBody() throws Exception {
+    public void postEchoesRequestBody() {
         var request = new HttpCallRequest<>(
                 "https://httpbin.org/post",
                 "POST",
