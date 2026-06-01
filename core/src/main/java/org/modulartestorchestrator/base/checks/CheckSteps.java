@@ -29,7 +29,6 @@ public class CheckSteps {
                     .usingRecursiveComparison()
                     .ignoringCollectionOrder()
                     .ignoringCollectionOrderInFields()
-                    .ignoringExpectedNullFields()
                     .withComparatorForType(BigDecimal::compareTo, BigDecimal.class)
                     .isEqualTo(expected);
             log.info(CheckLogTemplates.PASSED);
