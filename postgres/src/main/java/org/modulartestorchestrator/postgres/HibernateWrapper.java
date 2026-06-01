@@ -66,7 +66,37 @@ public class HibernateWrapper {
 
             cq.where(predicates.toArray(new Predicate[0]));
             List<T> results = session.createQuery(cq).getResultList();
+            if (results.size() > 1) {
+                throw new IllegalStateException(
+                        "findByFields returned " + results.size() + " results for " +
+                        entityClass.getSimpleName() + " — expected at most 1. " +
+                        "Narrow your criteria or use countByFields/findById.");
+            }
             return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> long countByFields(T example) {
+        Class<T> entityClass = (Class<T>) example.getClass();
+        try (var session = sessionFactory.openSession()) {
+            CriteriaBuilder cb = session.getCriteriaBuilder();
+            CriteriaQuery<Long> cq = cb.createQuery(Long.class);
+            Root<T> root = cq.from(entityClass);
+
+            List<Predicate> predicates = new ArrayList<>();
+            for (Field field : entityClass.getDeclaredFields()) {
+                field.setAccessible(true);
+                Object value = field.get(example);
+                if (value != null && !(value instanceof Collection)) {
+                    predicates.add(cb.equal(root.get(field.getName()), value));
+                }
+            }
+
+            cq.select(cb.count(root)).where(predicates.toArray(new Predicate[0]));
+            return session.createQuery(cq).getSingleResult();
         } catch (IllegalAccessException e) {
             throw new RuntimeException(e);
         }

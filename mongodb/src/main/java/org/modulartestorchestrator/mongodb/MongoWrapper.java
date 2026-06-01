@@ -71,7 +71,36 @@ public class MongoWrapper {
 
         if (filters.isEmpty()) return Optional.empty();
         Bson query = filters.size() == 1 ? filters.get(0) : Filters.and(filters);
-        return Optional.ofNullable(getCollection(documentClass).find(query).first());
+        List<T> results = getCollection(documentClass).find(query).limit(2).into(new ArrayList<>());
+        if (results.size() > 1) {
+            throw new IllegalStateException(
+                    "findByFields returned more than 1 result for " +
+                    documentClass.getSimpleName() + " — expected at most 1. " +
+                    "Narrow your criteria or use countByFields/findById.");
+        }
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> long countByFields(T example) {
+        Class<T> documentClass = (Class<T>) example.getClass();
+        List<Bson> filters = new ArrayList<>();
+
+        for (Field field : documentClass.getDeclaredFields()) {
+            field.setAccessible(true);
+            try {
+                Object value = field.get(example);
+                if (value == null || value instanceof Collection) continue;
+                String key = MongoIdExtractor.isIdField(field) ? "_id" : field.getName();
+                filters.add(Filters.eq(key, value));
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        if (filters.isEmpty()) return 0L;
+        Bson query = filters.size() == 1 ? filters.get(0) : Filters.and(filters);
+        return getCollection(documentClass).countDocuments(query);
     }
 
     @SuppressWarnings("unchecked")

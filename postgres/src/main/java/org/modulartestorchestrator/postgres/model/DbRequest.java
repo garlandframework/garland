@@ -50,4 +50,9 @@ public record DbRequest<T>(
     public static <T> DbRequest<T> findByFields(T example) {
         return new DbRequest<>((Class<T>) example.getClass(), null, example);
     }
+
+    @SuppressWarnings("unchecked")
+    public static <T> DbRequest<T> countByFields(T example) {
+        return new DbRequest<>((Class<T>) example.getClass(), null, example);
+    }
 }

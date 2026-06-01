@@ -47,6 +47,13 @@ public class DbSteps {
         return DbResult.flag(exists);
     }
 
+    public <T> Long countByFields(DbRequest<T> input, PipelineContext ctx) {
+        log.info(DbStepsLogTemplates.COUNT_BY_FIELDS, input.entityClass().getSimpleName());
+        long count = hibernate.countByFields(input.entity());
+        log.info(DbStepsLogTemplates.COUNT_RESULT, count, input.entityClass().getSimpleName());
+        return count;
+    }
+
     public <T> DbResult<T> persist(DbRequest<T> input, PipelineContext ctx) {
         log.info(DbStepsLogTemplates.PERSIST, input.entityClass().getSimpleName());
         T persisted = hibernate.persist(input.entity());

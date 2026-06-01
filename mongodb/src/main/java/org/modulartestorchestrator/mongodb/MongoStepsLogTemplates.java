@@ -21,6 +21,13 @@ public final class MongoStepsLogTemplates {
     public static final String FIND_BY_FIELDS =
             MG + "Finding document by fields: type=" + RESET + DATA + "{}" + RESET;
 
+    public static final String COUNT_BY_FIELDS =
+            MG + "Counting documents by fields: type=" + RESET + DATA + "{}" + RESET;
+
+    public static final String COUNT_RESULT =
+            MG + "Count result: " + RESET + DATA + "{}" + RESET +
+            MG + " documents of type=" + RESET + DATA + "{}" + RESET;
+
     public static final String EXISTS_CHECK =
             MG + "Checking document existence: type=" + RESET + DATA + "{}" + RESET +
             MG + ", id=" + RESET + DATA + "{}" + RESET;

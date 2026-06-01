@@ -87,6 +87,18 @@ public class MongoTestClient {
         };
     }
 
+    public <T> StepFunction<T, Long> countByFields() {
+        return (input, outerCtx) -> {
+            log.info(MongoTestClientLogTemplates.COUNT_BY_FIELDS, input.getClass().getSimpleName());
+            Long count = Pipeline.given(MongoRequest.countByFields(input))
+                    .withContext(outerCtx)
+                    .then(mongoSteps::countByFields)
+                    .execute();
+            log.info(MongoTestClientLogTemplates.VERIFIED);
+            return count;
+        };
+    }
+
     public <T> StepFunction<MongoRequest<T>, T> persist(T expectedDocument) {
         return (request, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.PERSIST, expectedDocument.getClass().getSimpleName());

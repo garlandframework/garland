@@ -87,6 +87,18 @@ public class DbTestClient {
         };
     }
 
+    public <T> StepFunction<T, Long> countByFields() {
+        return (input, outerCtx) -> {
+            log.info(DbTestClientLogTemplates.COUNT_BY_FIELDS, input.getClass().getSimpleName());
+            Long count = Pipeline.given(DbRequest.countByFields(input))
+                    .withContext(outerCtx)
+                    .then(dbSteps::countByFields)
+                    .execute();
+            log.info(DbTestClientLogTemplates.VERIFIED);
+            return count;
+        };
+    }
+
     public <T> StepFunction<DbRequest<T>, T> persist(T expectedEntity) {
         return (request, outerCtx) -> {
             log.info(DbTestClientLogTemplates.PERSIST, expectedEntity.getClass().getSimpleName());

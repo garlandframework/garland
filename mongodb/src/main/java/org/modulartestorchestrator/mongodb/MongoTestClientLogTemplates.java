@@ -12,6 +12,9 @@ public final class MongoTestClientLogTemplates {
     public static final String FIND_BY_FIELDS =
             MG + "▶ findByFields: " + RESET + DATA + "{}" + RESET;
 
+    public static final String COUNT_BY_FIELDS =
+            MG + "▶ countByFields: " + RESET + DATA + "{}" + RESET;
+
     public static final String PERSIST =
             MG + "▶ persist: " + RESET + DATA + "{}" + RESET;
 

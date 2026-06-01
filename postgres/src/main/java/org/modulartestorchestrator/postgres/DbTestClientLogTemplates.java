@@ -12,6 +12,9 @@ public final class DbTestClientLogTemplates {
     public static final String FIND_BY_FIELDS =
             DB + "▶ findByFields: " + RESET + DATA + "{}" + RESET;
 
+    public static final String COUNT_BY_FIELDS =
+            DB + "▶ countByFields: " + RESET + DATA + "{}" + RESET;
+
     public static final String PERSIST =
             DB + "▶ persist: " + RESET + DATA + "{}" + RESET;
 

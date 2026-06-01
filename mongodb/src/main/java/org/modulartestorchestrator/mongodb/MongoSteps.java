@@ -47,6 +47,13 @@ public class MongoSteps {
         return MongoResult.flag(exists);
     }
 
+    public <T> Long countByFields(MongoRequest<T> input, PipelineContext ctx) {
+        log.info(MongoStepsLogTemplates.COUNT_BY_FIELDS, input.documentClass().getSimpleName());
+        long count = mongo.countByFields(input.document());
+        log.info(MongoStepsLogTemplates.COUNT_RESULT, count, input.documentClass().getSimpleName());
+        return count;
+    }
+
     public <T> MongoResult<T> persist(MongoRequest<T> input, PipelineContext ctx) {
         log.info(MongoStepsLogTemplates.PERSIST, input.documentClass().getSimpleName());
         T persisted = mongo.persist(input.document());

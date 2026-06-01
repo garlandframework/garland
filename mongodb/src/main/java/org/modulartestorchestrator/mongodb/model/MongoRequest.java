@@ -16,6 +16,11 @@ public record MongoRequest<T>(Class<T> documentClass, Object id, T document) {
     }
 
     @SuppressWarnings("unchecked")
+    public static <T> MongoRequest<T> countByFields(T document) {
+        return new MongoRequest<>((Class<T>) document.getClass(), null, document);
+    }
+
+    @SuppressWarnings("unchecked")
     public static <T> MongoRequest<T> persist(T document) {
         return new MongoRequest<>((Class<T>) document.getClass(), null, document);
     }

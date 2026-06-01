@@ -32,6 +32,13 @@ public final class DbStepsLogTemplates {
     public static final String FIND_BY_FIELDS =
             DB + "Finding entity by fields: type=" + RESET + DATA + "{}" + RESET;
 
+    public static final String COUNT_BY_FIELDS =
+            DB + "Counting entities by fields: type=" + RESET + DATA + "{}" + RESET;
+
+    public static final String COUNT_RESULT =
+            DB + "Count result: " + RESET + DATA + "{}" + RESET +
+            DB + " entities of type=" + RESET + DATA + "{}" + RESET;
+
     public static final String PERSIST =
             DB + "Persisting entity: type=" + RESET + DATA + "{}" + RESET;
 
