@@ -10,6 +10,8 @@ import org.modulartestorchestrator.kafka.model.KafkaMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+
 public class KafkaTestClient {
 
     private static final Logger log = LoggerFactory.getLogger("KAFKA");
@@ -46,11 +48,31 @@ public class KafkaTestClient {
                 .execute();
     }
 
+    public <I, T> StepFunction<I, T> consume(Class<T> type, T expected, Duration temporalTolerance) {
+        return (input, outerCtx) -> Pipeline.given(input)
+                .withContext(outerCtx)
+                .then(Retry.of(kafkaSteps.consume(type), retryConfig))
+                .then(check.matchingNonNull(expected, temporalTolerance))
+                .execute();
+    }
+
     public <T> StepFunction<T, T> consumeMatching(Class<T> type) {
         return (expected, outerCtx) -> {
             log.info(KafkaTestClientLogTemplates.CONSUME_MATCHING, type.getSimpleName());
             T result = Retry.of(
                     (T exp, PipelineContext ctx) -> check.matchingNonNull(exp).apply(kafkaSteps.consume(type).apply(exp, ctx), ctx),
+                    retryConfig
+            ).apply(expected, outerCtx);
+            log.info(KafkaTestClientLogTemplates.VERIFIED);
+            return result;
+        };
+    }
+
+    public <T> StepFunction<T, T> consumeMatching(Class<T> type, Duration temporalTolerance) {
+        return (expected, outerCtx) -> {
+            log.info(KafkaTestClientLogTemplates.CONSUME_MATCHING, type.getSimpleName());
+            T result = Retry.of(
+                    (T exp, PipelineContext ctx) -> check.matchingNonNull(exp, temporalTolerance).apply(kafkaSteps.consume(type).apply(exp, ctx), ctx),
                     retryConfig
             ).apply(expected, outerCtx);
             log.info(KafkaTestClientLogTemplates.VERIFIED);
