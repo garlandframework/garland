@@ -279,6 +279,7 @@ The rules below are specific to this project.
      - real projection document class
      - real mapper method for event → projection doc
      - which MongoDB collection
+     - note: always use mongoClient.findById(Duration.ofMillis(1)) if the document has timestamp fields — MongoDB truncates Instant nanoseconds to milliseconds
 -->
 
 ## Test data factories
@@ -288,6 +289,14 @@ The rules below are specific to this project.
 ## Imports reference
 
 <!-- from analysis: full import list with real package names -->
+
+## Temporal tolerance
+
+<!-- from analysis: inspect document classes for timestamp fields (Instant, LocalDateTime, etc.)
+     If present, note that mongoClient.findById(Duration.ofMillis(1)) must be used instead of findById().
+     For Kafka events with service-generated timestamps, note the SLA window pattern:
+     capture Instant testStart = Instant.now() at test start, set expected field = testStart,
+     use consumeMatching(Class, Duration) with tolerance = max acceptable processing delay. -->
 
 ## Learned patterns
 
@@ -356,9 +365,19 @@ The rules below are specific to this project.
 
 <!-- from analysis: relevant test data factory methods -->
 
+## Temporal tolerance
+
+<!-- from analysis: identify which systems in the chain truncate or generate timestamps:
+     - MongoDB: always use mongoClient.findById(Duration.ofMillis(1)) when document has timestamp fields
+     - Kafka: use consumeMatching(Class, Duration) for events with service-generated timestamps (SLA window pattern)
+     - HTTP: use makeCall(HttpCallResponse, Duration) or pollingCall(..., Duration) for GET responses with server timestamps
+     Document the actual tolerance values used (e.g. Duration.ofMillis(1) for MongoDB, Duration.ofMinutes(2) for SLA).
+     Capture Instant testStart = Instant.now() at test start for SLA window assertions.
+-->
+
 ## Imports reference
 
-<!-- from analysis: full import list with real package names -->
+<!-- from analysis: full import list with real package names — include java.time.Duration and java.time.Instant -->
 
 ## Learned patterns
 

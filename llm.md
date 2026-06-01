@@ -53,8 +53,14 @@ httpClient.makeCall(int expectedStatus, new TypeReference<List<ItemDto>>() {})
 // Assert status, headers, and body match expected response object
 httpClient.makeCall(HttpCallResponse<R> expected)
 
+// Same with temporal tolerance — for GET responses that include server-generated timestamps
+httpClient.makeCall(HttpCallResponse<R> expected, Duration temporalTolerance)
+
 // Poll until status + body match (for eventual consistency)
 httpClient.pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig)
+
+// Same with temporal tolerance — for polling GET responses that include server-generated timestamps
+httpClient.pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig, Duration temporalTolerance)
 ```
 
 Input to `makeCall` steps is always `HttpCallRequest<T>`:
@@ -68,12 +74,13 @@ new HttpCallRequest<>(url, "GET",  List.of(), null)
 ## DbTestClient (Postgres / Hibernate)
 
 ```java
-dbClient.findById()        // fetch by @Id, assert exists, assert matches input
-dbClient.findByFields()    // fetch by all non-null fields, assert exists, assert matches
-dbClient.existsById()      // assert entity exists, passthrough input
-dbClient.notExistsById()   // assert entity does NOT exist
-dbClient.persist(expected) // persist DbRequest, assert result matches expected
-dbClient.delete()          // delete DbRequest, assert no longer exists
+dbClient.findById()                          // fetch by @Id, assert exists, assert matches input
+dbClient.findById(Duration temporalTolerance) // same, with tolerance for timestamp fields
+dbClient.findByFields()                      // fetch by all non-null fields, assert exists, assert matches
+dbClient.existsById()                        // assert entity exists, passthrough input
+dbClient.notExistsById()                     // assert entity does NOT exist
+dbClient.persist(expected)                   // persist DbRequest, assert result matches expected
+dbClient.delete()                            // delete DbRequest, assert no longer exists
 ```
 
 Input must be the entity class registered with `HibernateWrapper`.
@@ -96,10 +103,12 @@ Only remove constraint attributes (`nullable`, `length`, `unique`) — keep the 
 ## KafkaTestClient
 
 ```java
-kafkaClient.consumeMatching(Class<T> type)  // poll until a matching message is found, assert it matches input
-kafkaClient.consume(Class<T> type)          // poll and return next message of type T
-kafkaClient.consume(Class<T> type, T expected) // poll and assert equals expected
-kafkaClient.publish()                       // publish KafkaMessage<T> to configured topic
+kafkaClient.consumeMatching(Class<T> type)                              // poll until matching message, assert equals input
+kafkaClient.consumeMatching(Class<T> type, Duration temporalTolerance)  // same, with tolerance for timestamp fields
+kafkaClient.consume(Class<T> type)                                      // poll and return next message of type T
+kafkaClient.consume(Class<T> type, T expected)                          // poll and assert equals expected
+kafkaClient.consume(Class<T> type, T expected, Duration temporalTolerance) // same, with tolerance
+kafkaClient.publish()                                                   // publish KafkaMessage<T> to configured topic
 ```
 
 `consumeMatching` is the standard choice for verifying that a write triggered an event.
@@ -141,12 +150,13 @@ Call `warmup()` on every client in `@BeforeSuite`, and `close()` each in `@After
 ## MongoTestClient
 
 ```java
-mongoClient.findById()        // fetch by @Id, assert exists, assert matches input
-mongoClient.findByFields()    // fetch by all non-null fields, assert exists, assert matches
-mongoClient.existsById()      // assert document exists, passthrough input
-mongoClient.notExistsById()   // assert document does NOT exist
-mongoClient.persist(expected) // persist MongoRequest, assert result matches expected
-mongoClient.delete()          // delete MongoRequest, assert no longer exists
+mongoClient.findById()                           // fetch by @Id, assert exists, assert matches input
+mongoClient.findById(Duration temporalTolerance)  // same, with tolerance for timestamp fields
+mongoClient.findByFields()                        // fetch by all non-null fields, assert exists, assert matches
+mongoClient.existsById()                          // assert document exists, passthrough input
+mongoClient.notExistsById()                       // assert document does NOT exist
+mongoClient.persist(expected)                     // persist MongoRequest, assert result matches expected
+mongoClient.delete()                              // delete MongoRequest, assert no longer exists
 ```
 
 Input must be the document class registered with `MongoWrapper`.
@@ -165,6 +175,51 @@ mongo = new MongoWrapper(
                 .build()
 );
 ```
+
+---
+
+## Temporal tolerance
+
+All comparison steps (`findById`, `consumeMatching`, `makeCall(HttpCallResponse)`, etc.) have overloads that accept a `Duration temporalTolerance`. When temporal tolerance is set, the comparator accepts any timestamp within `±tolerance` of the expected value for `Instant`, `LocalDateTime`, `ZonedDateTime`, and `OffsetDateTime` fields. All other fields are compared exactly.
+
+Two situations that require temporal tolerance:
+
+### Storage precision truncation
+
+Some stores reduce timestamp precision when persisting:
+- MongoDB: truncates `Instant` nanoseconds to milliseconds
+- Postgres: truncates nanoseconds to microseconds (less common in practice)
+
+When the expected document was built from an event or DTO that carries full nanosecond precision, the round-trip through the store will fail exact comparison. Use `Duration.ofMillis(1)`:
+
+```java
+Pipeline.given(expectedDoc)
+        .then(mongoClient.findById(Duration.ofMillis(1)))
+        .execute();
+```
+
+Always use the tolerance overload for `mongoClient.findById()` when the expected document contains a timestamp field that was stored in MongoDB.
+
+### SLA window for service-generated timestamps
+
+When the service sets a timestamp field to `Instant.now()` internally (e.g. `eventTimestamp`, `createdAt`, `processedAt`), the test cannot know the exact value. The correct approach is:
+
+1. Capture `Instant testStart = Instant.now()` at the start of the test
+2. Set the expected timestamp field to `testStart`
+3. Use a tolerance equal to the maximum acceptable processing delay
+
+```java
+Instant testStart = Instant.now();
+
+OrderPlacedEvent expected = new OrderPlacedEvent(orderId, ..., testStart);
+Pipeline.given(expected)
+        .then(orderKafkaClient.consumeMatching(OrderPlacedEvent.class, Duration.ofMinutes(2)))
+        .execute();
+```
+
+This simultaneously asserts that the timestamp exists (not null) and was set within the SLA window. If the event arrives with `eventTimestamp` more than 2 minutes from `testStart`, the assertion fails — which is the desired behavior when the SLA is violated.
+
+**Do not use `null` for timestamp fields when you can use temporal tolerance.** Null skips the field entirely; tolerance-aware comparison still verifies the field is present and within bounds.
 
 ---
 
@@ -446,7 +501,7 @@ public void deleteItem_fullSystemFlow() throws Exception {
 }
 ```
 
-`null` fields in the expected event (e.g. `eventTimestamp`) are skipped by `consumeMatching` via `Verify.matching` — use `null` for any field you cannot predict at test-construction time.
+For server-generated timestamps (e.g. `eventTimestamp`) prefer temporal tolerance over `null` — see the **Temporal tolerance** section. `null` skips the field entirely; tolerance-aware comparison still verifies the field is present and within an acceptable window. Use `null` only for truly non-deterministic fields that cannot be bounded.
 
 ### Rules
 
