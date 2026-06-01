@@ -3,7 +3,6 @@ package org.modulartestorchestrator.postgres;
 public final class DbCheckStepsLogTemplates {
 
     private static final String CHECK = "\033[38;5;141m";
-    private static final String DATA  = "\033[38;5;183m";
     private static final String RESET = "\033[0m";
 
     public static final String CHECKING_EXISTS =

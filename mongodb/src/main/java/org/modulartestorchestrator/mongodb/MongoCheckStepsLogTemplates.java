@@ -3,7 +3,6 @@ package org.modulartestorchestrator.mongodb;
 public final class MongoCheckStepsLogTemplates {
 
     private static final String MG    = "\033[38;5;45m";
-    private static final String DATA  = "\033[38;5;159m";
     private static final String RESET = "\033[0m";
 
     public static final String CHECKING_EXISTS =
