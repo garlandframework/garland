@@ -33,8 +33,9 @@ public final class Retry {
                     }
                 }
             }
-            if (last instanceof Error e) throw e;
-            throw (Exception) last;
+            if (last instanceof Error e)     throw e;
+            if (last instanceof Exception e) throw e;
+            throw new RuntimeException(last);
         };
     }
 }
