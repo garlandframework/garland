@@ -25,7 +25,7 @@ public class KafkaTestClient {
     public KafkaTestClient(KafkaConfig config, RetryConfig retryConfig) {
         this.consumer    = new KafkaConsumerWrapper(config);
         this.producer    = new KafkaProducerWrapper(config);
-        this.kafkaSteps  = new KafkaSteps(consumer, producer, config.topic());
+        this.kafkaSteps  = new KafkaSteps(consumer, producer, config.defaultTopic());
         this.retryConfig = retryConfig;
     }
 

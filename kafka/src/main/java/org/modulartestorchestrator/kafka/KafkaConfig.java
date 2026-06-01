@@ -5,7 +5,7 @@ import java.util.List;
 
 public record KafkaConfig(String bootstrapServers, List<String> topics, String groupId) {
 
-    public String topic() {
+    public String defaultTopic() {
         return topics.get(0);
     }
 

@@ -19,7 +19,7 @@ public class KafkaProducerWrapper {
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
         this.producer = new KafkaProducer<>(props);
-        this.topic    = config.topic();
+        this.topic    = config.defaultTopic();
     }
 
     public void send(String key, String value) throws Exception {

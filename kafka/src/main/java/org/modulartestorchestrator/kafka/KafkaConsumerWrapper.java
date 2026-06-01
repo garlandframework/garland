@@ -27,7 +27,7 @@ public class KafkaConsumerWrapper {
         props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,   "1");
 
         this.consumer = new KafkaConsumer<>(props);
-        this.topic    = config.topic();
+        this.topic    = config.defaultTopic();
         this.consumer.subscribe(config.topics());
     }
 
