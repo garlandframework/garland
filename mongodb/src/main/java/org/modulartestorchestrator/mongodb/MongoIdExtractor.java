@@ -26,8 +26,12 @@ public final class MongoIdExtractor {
     }
 
     public static Field findIdField(Class<?> clazz) {
-        for (Field field : clazz.getDeclaredFields()) {
-            if (isIdField(field)) return field;
+        Class<?> current = clazz;
+        while (current != null && current != Object.class) {
+            for (Field field : current.getDeclaredFields()) {
+                if (isIdField(field)) return field;
+            }
+            current = current.getSuperclass();
         }
         throw new IllegalArgumentException(
                 "No id field found on " + clazz.getSimpleName() +

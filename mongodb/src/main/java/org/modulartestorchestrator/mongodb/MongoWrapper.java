@@ -55,20 +55,7 @@ public class MongoWrapper {
     @SuppressWarnings("unchecked")
     public <T> Optional<T> findByFields(T example) {
         Class<T> documentClass = (Class<T>) example.getClass();
-        List<Bson> filters = new ArrayList<>();
-
-        for (Field field : documentClass.getDeclaredFields()) {
-            field.setAccessible(true);
-            try {
-                Object value = field.get(example);
-                if (value == null || value instanceof Collection) continue;
-                String key = MongoIdExtractor.isIdField(field) ? "_id" : field.getName();
-                filters.add(Filters.eq(key, value));
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
+        List<Bson> filters = buildFilters(example);
         if (filters.isEmpty()) return Optional.empty();
         Bson query = filters.size() == 1 ? filters.get(0) : Filters.and(filters);
         List<T> results = getCollection(documentClass).find(query).limit(2).into(new ArrayList<>());
@@ -84,23 +71,30 @@ public class MongoWrapper {
     @SuppressWarnings("unchecked")
     public <T> long countByFields(T example) {
         Class<T> documentClass = (Class<T>) example.getClass();
-        List<Bson> filters = new ArrayList<>();
-
-        for (Field field : documentClass.getDeclaredFields()) {
-            field.setAccessible(true);
-            try {
-                Object value = field.get(example);
-                if (value == null || value instanceof Collection) continue;
-                String key = MongoIdExtractor.isIdField(field) ? "_id" : field.getName();
-                filters.add(Filters.eq(key, value));
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
+        List<Bson> filters = buildFilters(example);
         if (filters.isEmpty()) return 0L;
         Bson query = filters.size() == 1 ? filters.get(0) : Filters.and(filters);
         return getCollection(documentClass).countDocuments(query);
+    }
+
+    private static List<Bson> buildFilters(Object example) {
+        List<Bson> filters = new ArrayList<>();
+        Class<?> current = example.getClass();
+        while (current != null && current != Object.class) {
+            for (Field field : current.getDeclaredFields()) {
+                field.setAccessible(true);
+                try {
+                    Object value = field.get(example);
+                    if (value == null || value instanceof Collection) continue;
+                    String key = MongoIdExtractor.isIdField(field) ? "_id" : field.getName();
+                    filters.add(Filters.eq(key, value));
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            current = current.getSuperclass();
+        }
+        return filters;
     }
 
     @SuppressWarnings("unchecked")

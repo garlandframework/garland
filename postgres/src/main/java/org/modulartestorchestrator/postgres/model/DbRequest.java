@@ -15,15 +15,19 @@ public record DbRequest<T>(
     }
 
     private static Object extractId(Object entity) {
-        for (Field field : entity.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(Id.class)) {
-                field.setAccessible(true);
-                try {
-                    return field.get(entity);
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
+        Class<?> current = entity.getClass();
+        while (current != null && current != Object.class) {
+            for (Field field : current.getDeclaredFields()) {
+                if (field.isAnnotationPresent(Id.class)) {
+                    field.setAccessible(true);
+                    try {
+                        return field.get(entity);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
             }
+            current = current.getSuperclass();
         }
         throw new IllegalArgumentException("No @Id field found on " + entity.getClass().getSimpleName());
     }
