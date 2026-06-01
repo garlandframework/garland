@@ -8,6 +8,7 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.result.DeleteResult;
 import org.bson.codecs.configuration.CodecRegistries;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.PojoCodecProvider;
@@ -104,7 +105,12 @@ public class MongoWrapper {
     }
 
     public <T> void delete(Class<T> documentClass, Object id) {
-        getCollection(documentClass).deleteOne(Filters.eq("_id", id));
+        DeleteResult result = getCollection(documentClass).deleteOne(Filters.eq("_id", id));
+        if (result.getDeletedCount() == 0) {
+            throw new IllegalStateException(
+                    "delete found no document of type " + documentClass.getSimpleName() +
+                    " with id=" + id);
+        }
     }
 
     private <T> MongoCollection<T> getCollection(Class<T> documentClass) {

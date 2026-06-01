@@ -121,9 +121,12 @@ public class HibernateWrapper {
             var tx = session.beginTransaction();
             try {
                 T entity = session.get(entityClass, id);
-                if (entity != null) {
-                    session.remove(entity);
+                if (entity == null) {
+                    throw new IllegalStateException(
+                            "delete found no entity of type " + entityClass.getSimpleName() +
+                            " with id=" + id);
                 }
+                session.remove(entity);
                 tx.commit();
             } catch (Exception e) {
                 tx.rollback();
