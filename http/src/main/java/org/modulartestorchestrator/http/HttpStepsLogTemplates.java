@@ -14,16 +14,5 @@ public final class HttpStepsLogTemplates {
     public static final String RESPONSE_RECEIVED =
             HTTP + "Response received: status=" + RESET + DATA + "{}" + RESET + "\n" + DATA + "{}" + RESET;
 
-    public static final String VALIDATE_CHECKING =
-            HTTP + "Validating response status: expected=" + RESET + DATA + "{}" + RESET +
-            HTTP + ", actual=" + RESET + DATA + "{}" + RESET;
-
-    public static final String VALIDATE_PASSED =
-            HTTP + "Status validation passed: " + RESET + DATA + "{}" + RESET;
-
-    public static final String VALIDATE_FAILED =
-            HTTP + "Status validation failed: expected=" + RESET + DATA + "{}" + RESET +
-            HTTP + ", actual=" + RESET + DATA + "{}" + RESET;
-
     private HttpStepsLogTemplates() {}
 }
