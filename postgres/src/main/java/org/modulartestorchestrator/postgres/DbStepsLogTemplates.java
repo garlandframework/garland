@@ -8,10 +8,6 @@ public final class DbStepsLogTemplates {
     private static final String DATA  = "\033[38;5;183m";
     private static final String RESET = "\033[0m";
 
-    public static final String SETUP =
-            DB + "DB setup: operation=" + RESET + DATA + "{}" + RESET +
-            DB + ", entity=" + RESET + DATA + "{}" + RESET;
-
     public static final String FIND_BY_ID =
             DB + "Finding entity by id: type=" + RESET + DATA + "{}" + RESET +
             DB + ", id=" + RESET + DATA + "{}" + RESET;

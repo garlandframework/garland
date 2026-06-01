@@ -6,13 +6,12 @@ import java.lang.reflect.Field;
 
 public record DbRequest<T>(
         Class<T> entityClass,
-        DbOperation operation,
         Object id,
         T entity
 ) {
     @SuppressWarnings("unchecked")
     public static <T> DbRequest<T> findById(T entity) {
-        return new DbRequest<>((Class<T>) entity.getClass(), DbOperation.FIND_BY_ID, extractId(entity), entity);
+        return new DbRequest<>((Class<T>) entity.getClass(), extractId(entity), entity);
     }
 
     private static Object extractId(Object entity) {
@@ -30,25 +29,25 @@ public record DbRequest<T>(
     }
 
     public static <T> DbRequest<T> exists(Class<T> entityClass, Object id) {
-        return new DbRequest<>(entityClass, DbOperation.EXISTS, id, null);
+        return new DbRequest<>(entityClass, id, null);
     }
 
     @SuppressWarnings("unchecked")
     public static <T> DbRequest<T> exists(T entity) {
-        return new DbRequest<>((Class<T>) entity.getClass(), DbOperation.EXISTS, extractId(entity), null);
+        return new DbRequest<>((Class<T>) entity.getClass(), extractId(entity), null);
     }
 
     @SuppressWarnings("unchecked")
     public static <T> DbRequest<T> persist(T entity) {
-        return new DbRequest<>((Class<T>) entity.getClass(), DbOperation.PERSIST, null, entity);
+        return new DbRequest<>((Class<T>) entity.getClass(), null, entity);
     }
 
     public static <T> DbRequest<T> delete(Class<T> entityClass, Object id) {
-        return new DbRequest<>(entityClass, DbOperation.DELETE, id, null);
+        return new DbRequest<>(entityClass, id, null);
     }
 
     @SuppressWarnings("unchecked")
     public static <T> DbRequest<T> findByFields(T example) {
-        return new DbRequest<>((Class<T>) example.getClass(), DbOperation.FIND_BY_FIELDS, null, example);
+        return new DbRequest<>((Class<T>) example.getClass(), null, example);
     }
 }

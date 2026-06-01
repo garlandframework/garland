@@ -38,7 +38,6 @@ public class DbTestClient {
             log.info(DbTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
             T result = Pipeline.given(DbRequest.findById(input))
                     .withContext(outerCtx)
-                    .then(dbSteps.setup())
                     .then(Retry.of(
                             StepFunction.<DbRequest<T>, DbResult<T>>of(dbSteps::findById)
                                     .andThen(dbCheck.entityExists()),
@@ -57,7 +56,6 @@ public class DbTestClient {
             log.info(DbTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
             T result = Pipeline.given(DbRequest.findById(input))
                     .withContext(outerCtx)
-                    .then(dbSteps.setup())
                     .then(Retry.of(
                             StepFunction.<DbRequest<T>, DbResult<T>>of(dbSteps::findById)
                                     .andThen(dbCheck.entityExists()),
@@ -76,7 +74,6 @@ public class DbTestClient {
             log.info(DbTestClientLogTemplates.FIND_BY_FIELDS, input.getClass().getSimpleName());
             T result = Pipeline.given(DbRequest.findByFields(input))
                     .withContext(outerCtx)
-                    .then(dbSteps.setup())
                     .then(Retry.of(
                             StepFunction.<DbRequest<T>, DbResult<T>>of(dbSteps::findByFields)
                                     .andThen(dbCheck.entityExists()),
@@ -95,7 +92,6 @@ public class DbTestClient {
             log.info(DbTestClientLogTemplates.PERSIST, expectedEntity.getClass().getSimpleName());
             T result = Pipeline.given(request)
                     .withContext(outerCtx)
-                    .then(dbSteps.setup())
                     .then(dbSteps::persist)
                     .then(dbCheck.entityExists())
                     .then((DbResult<T> r, PipelineContext ctx) -> r.entity())
@@ -111,7 +107,6 @@ public class DbTestClient {
             log.info(DbTestClientLogTemplates.EXISTS, input.getClass().getSimpleName());
             Pipeline.given(DbRequest.exists(input))
                     .withContext(outerCtx)
-                    .then(dbSteps.setup())
                     .then(Retry.of(
                             StepFunction.<DbRequest<T>, DbResult<T>>of(dbSteps::exists)
                                     .andThen(dbCheck.entityExists()),
@@ -128,7 +123,6 @@ public class DbTestClient {
             log.info(DbTestClientLogTemplates.NOT_EXISTS, input.getClass().getSimpleName());
             Pipeline.given(DbRequest.exists(input))
                     .withContext(outerCtx)
-                    .then(dbSteps.setup())
                     .then(dbSteps::exists)
                     .then(dbCheck.entityNotExists())
                     .execute();
@@ -142,7 +136,6 @@ public class DbTestClient {
             log.info(DbTestClientLogTemplates.EXISTS, request.entityClass().getSimpleName());
             return Pipeline.given(request)
                     .withContext(outerCtx)
-                    .then(dbSteps.setup())
                     .then(dbSteps::exists)
                     .then(dbCheck.entityExists())
                     .execute();
@@ -154,7 +147,6 @@ public class DbTestClient {
             log.info(DbTestClientLogTemplates.DELETE, request.entityClass().getSimpleName());
             return Pipeline.given(request)
                     .withContext(outerCtx)
-                    .then(dbSteps.setup())
                     .then(dbSteps::delete)
                     .then(dbCheck.entityNotExists())
                     .then((DbResult<T> r, PipelineContext ctx) -> (Void) null)

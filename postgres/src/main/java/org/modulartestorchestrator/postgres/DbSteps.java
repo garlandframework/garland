@@ -1,7 +1,6 @@
 package org.modulartestorchestrator.postgres;
 
 import org.modulartestorchestrator.base.PipelineContext;
-import org.modulartestorchestrator.base.StepFunction;
 import org.modulartestorchestrator.postgres.model.DbRequest;
 import org.modulartestorchestrator.postgres.model.DbResult;
 import org.slf4j.Logger;
@@ -17,13 +16,6 @@ public class DbSteps {
 
     public DbSteps(HibernateWrapper hibernate) {
         this.hibernate = hibernate;
-    }
-
-    public <T> StepFunction<DbRequest<T>, DbRequest<T>> setup() {
-        return (request, ctx) -> {
-            log.info(DbStepsLogTemplates.SETUP, request.operation(), request.entityClass().getSimpleName());
-            return request;
-        };
     }
 
     public <T> DbResult<T> findByFields(DbRequest<T> input, PipelineContext ctx) {
