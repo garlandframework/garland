@@ -15,7 +15,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-public class HibernateWrapper {
+public class HibernateWrapper implements AutoCloseable {
 
     private final SessionFactory sessionFactory;
 

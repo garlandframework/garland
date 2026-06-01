@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class MongoWrapper {
+public class MongoWrapper implements AutoCloseable {
 
     private final MongoClient client;
     private final MongoDatabase database;
