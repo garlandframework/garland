@@ -17,6 +17,7 @@
         <module>postgres</module>
         <module>kafka</module>
         <module>mongodb</module>
+        <module>bom</module>
     </modules>
 
     <properties>
