@@ -11,6 +11,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
+/**
+ * Wraps a {@link org.apache.kafka.clients.consumer.KafkaConsumer} subscribed to the topics
+ * in {@link KafkaConfig}. Used exclusively by {@link KafkaTestClient}.
+ *
+ * <p>The consumer is configured with {@code AUTO_OFFSET_RESET=latest}. Because Kafka only
+ * assigns partitions after the first {@code poll()} call, creating the consumer and polling
+ * immediately may read from the beginning if assignment is delayed. {@link #warmup()} resolves
+ * this by blocking until partitions are assigned and then seeking to the end — guaranteeing
+ * that subsequent polls only see events produced after warmup returned.
+ */
 public class KafkaConsumerWrapper {
 
     private final KafkaConsumer<String, String> consumer;

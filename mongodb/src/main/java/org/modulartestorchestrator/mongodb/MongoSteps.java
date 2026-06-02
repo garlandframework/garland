@@ -8,6 +8,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 
+/**
+ * Low-level MongoDB steps: findById, findByFields, countByFields, persist, delete,
+ * exists. Used internally by {@link MongoTestClient}.
+ */
 public class MongoSteps {
 
     private static final Logger log = LoggerFactory.getLogger(MongoSteps.class);

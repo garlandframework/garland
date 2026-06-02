@@ -21,6 +21,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * MongoDB client wrapper used by {@link MongoTestClient}. Handles POJO codec registration,
+ * collection routing by document class, and per-operation queries.
+ *
+ * <p>UUIDs are stored using {@code JAVA_LEGACY} representation to maintain compatibility
+ * with collections written by the Java MongoDB driver before version 4.x.
+ *
+ * <p>Call {@link #close()} at suite teardown to release the underlying
+ * {@link com.mongodb.client.MongoClient}. Implement with {@code @AfterSuite} or
+ * {@code try-with-resources}.
+ */
 public class MongoWrapper implements AutoCloseable {
 
     private final MongoClient client;

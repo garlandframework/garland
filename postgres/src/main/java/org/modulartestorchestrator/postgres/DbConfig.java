@@ -3,6 +3,12 @@ package org.modulartestorchestrator.postgres;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Connection and entity configuration for {@link HibernateWrapper}. All entity classes
+ * that the test suite will query must be registered via {@link Builder#entity} — Hibernate
+ * validates the schema against this list at construction time and will throw if an entity
+ * is missing or if the live schema does not match.
+ */
 public class DbConfig {
 
     private final String url;

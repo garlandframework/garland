@@ -6,6 +6,10 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.util.List;
 
+/**
+ * Thin wrapper around {@link java.net.http.HttpClient} that always sets
+ * {@code Content-Type: application/json}. Used internally by {@link HttpSteps}.
+ */
 public class HttpClientWrapper {
 
     private final HttpClient client = HttpClient.newHttpClient();

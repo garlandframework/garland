@@ -8,6 +8,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 
+/**
+ * Low-level Hibernate steps: findById, findByFields, countByFields, persist, delete,
+ * exists. Used internally by {@link DbTestClient}.
+ */
 public class DbSteps {
 
     private static final Logger log = LoggerFactory.getLogger(DbSteps.class);

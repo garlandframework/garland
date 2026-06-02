@@ -3,6 +3,11 @@ package org.modulartestorchestrator.mongodb;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 
+/**
+ * Utility to extract and identify the ID field from a MongoDB document class. A field is
+ * treated as an ID if it is named {@code "id"} or carries any annotation named {@code @Id}.
+ * Used internally by {@link MongoWrapper} and {@link MongoRequest}.
+ */
 public final class MongoIdExtractor {
 
     private MongoIdExtractor() {}

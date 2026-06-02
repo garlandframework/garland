@@ -4,11 +4,25 @@ import jakarta.persistence.Id;
 
 import java.lang.reflect.Field;
 
+/**
+ * Input descriptor for a single database operation. Carries the entity class, an optional
+ * ID for lookup and delete operations, and an optional entity instance for persist and
+ * query-by-example operations.
+ *
+ * <p>Use the static factory methods rather than the record constructor — the factories
+ * extract the {@code @Id} field automatically and set the correct combination of fields
+ * for each operation type.
+ */
 public record DbRequest<T>(
         Class<T> entityClass,
         Object id,
         T entity
 ) {
+    /**
+     * Builds a by-ID lookup request. Extracts the {@code @Id} field value from
+     * {@code entity} — throws {@link IllegalArgumentException} if no annotated field
+     * is found.
+     */
     @SuppressWarnings("unchecked")
     public static <T> DbRequest<T> findById(T entity) {
         return new DbRequest<>((Class<T>) entity.getClass(), extractId(entity), entity);
@@ -50,6 +64,7 @@ public record DbRequest<T>(
         return new DbRequest<>(entityClass, id, null);
     }
 
+    /** Builds a query-by-example request. All non-null fields of {@code example} become filter predicates. */
     @SuppressWarnings("unchecked")
     public static <T> DbRequest<T> findByFields(T example) {
         return new DbRequest<>((Class<T>) example.getClass(), null, example);

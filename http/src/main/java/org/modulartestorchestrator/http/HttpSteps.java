@@ -12,6 +12,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
+/**
+ * Low-level HTTP execution steps: serializes the request DTO to JSON, sends it via
+ * {@link HttpClientWrapper}, and deserializes the response body. Used internally by
+ * {@link HttpTestClient}.
+ */
 public class HttpSteps {
 
     private static final Logger log = LoggerFactory.getLogger(HttpSteps.class);

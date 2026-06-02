@@ -11,6 +11,10 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * HTTP-specific assertion steps: status code and response header checks. Used internally
+ * by {@link HttpTestClient}.
+ */
 public class HttpCheckSteps {
 
     private static final Logger log = LoggerFactory.getLogger(HttpCheckSteps.class);

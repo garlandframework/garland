@@ -7,6 +7,10 @@ import org.slf4j.LoggerFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Assertion steps for MongoDB query results: documentExists and documentNotExists checks
+ * on {@link MongoResult}. Used internally by {@link MongoTestClient}.
+ */
 public class MongoCheckSteps {
 
     private static final Logger log = LoggerFactory.getLogger(MongoCheckSteps.class);

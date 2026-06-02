@@ -1,5 +1,10 @@
 package org.modulartestorchestrator.postgres.model;
 
+/**
+ * Result of a database operation: the entity (or {@code null} if not found) and whether
+ * it existed at query time. Produced by {@link org.modulartestorchestrator.postgres.DbTestClient}
+ * operations; consumed by downstream assertion steps.
+ */
 public record DbResult<T>(T entity, boolean exists) {
 
     public static <T> DbResult<T> of(T entity) {

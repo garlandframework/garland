@@ -17,6 +17,10 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Assertion steps backed by AssertJ recursive comparison. The public API surface is
+ * {@link Verify} — instantiate this class only when building custom test client extensions.
+ */
 public class CheckSteps {
 
     private static final Logger log = LoggerFactory.getLogger(CheckSteps.class);

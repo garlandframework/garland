@@ -7,6 +7,10 @@ import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.util.Properties;
 
+/**
+ * Wraps a {@link org.apache.kafka.clients.producer.KafkaProducer}. Used exclusively by
+ * {@link KafkaTestClient}.
+ */
 public class KafkaProducerWrapper {
 
     private final KafkaProducer<String, String> producer;

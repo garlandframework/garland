@@ -4,12 +4,22 @@ import org.modulartestorchestrator.base.StepFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Wraps a {@link StepFunction} with retry-on-failure behavior defined by a
+ * {@link RetryConfig}. Each failed attempt is logged as a warning; after all attempts
+ * are exhausted the last throwable is rethrown as-is without wrapping.
+ */
 public final class Retry {
 
     private static final Logger log = LoggerFactory.getLogger(Retry.class);
 
     private Retry() {}
 
+    /**
+     * Returns a step that attempts {@code step} up to {@code config.maxAttempts()} times,
+     * sleeping {@code config.delay()} between attempts. The first successful result is
+     * returned immediately; if all attempts fail, the last throwable is rethrown.
+     */
     public static <I, O> StepFunction<I, O> of(StepFunction<I, O> step, RetryConfig config) {
         return (input, ctx) -> {
             Throwable last = null;

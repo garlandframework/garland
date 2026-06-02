@@ -10,6 +10,10 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.Optional;
 
+/**
+ * Low-level Kafka steps: polls one record from the consumer and deserializes it, or
+ * produces a message. Used internally by {@link KafkaTestClient}.
+ */
 public class KafkaSteps {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaSteps.class);

@@ -13,6 +13,15 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 
+/**
+ * Test client for PostgreSQL assertions via Hibernate. Each method returns a
+ * {@link StepFunction} that queries the database and asserts the result, retrying
+ * according to the configured {@link RetryConfig}.
+ *
+ * <p>Entity classes must be registered with {@link DbConfig} before constructing this client.
+ * Entities used with {@link #findById()} and {@link #existsById()} must have a field
+ * annotated with {@code @Id}. Not thread-safe — designed for sequential test execution.
+ */
 public class DbTestClient {
 
     private static final Logger log = LoggerFactory.getLogger("DB");
@@ -33,6 +42,11 @@ public class DbTestClient {
         this(hibernate, RetryConfig.attempts(1));
     }
 
+    /**
+     * Finds the entity by its {@code @Id} field value and asserts it matches the input
+     * (null fields ignored). Retries if the entity is not yet present — useful after an
+     * async write where the row may not be immediately visible.
+     */
     public <T> StepFunction<T, T> findById() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
@@ -51,6 +65,11 @@ public class DbTestClient {
         };
     }
 
+    /**
+     * Same as {@link #findById()} but applies temporal tolerance to timestamp fields.
+     * Use when entity timestamps are truncated by the database driver or when comparing
+     * server-generated timestamps to locally-constructed expected values.
+     */
     public <T> StepFunction<T, T> findById(Duration temporalTolerance) {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
@@ -69,6 +88,15 @@ public class DbTestClient {
         };
     }
 
+    /**
+     * Builds a query from all non-null fields of the input using Hibernate Criteria API,
+     * finds the single matching row, and asserts it matches the input. Null fields are
+     * excluded from the query and ignored during comparison.
+     *
+     * <p>Throws {@link IllegalStateException} if more than one row matches — narrow your
+     * criteria or switch to {@link #countByFields()} if you need multi-row results.
+     * Use this when the entity ID is not known before insertion.
+     */
     public <T> StepFunction<T, T> findByFields() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.FIND_BY_FIELDS, input.getClass().getSimpleName());
@@ -87,6 +115,11 @@ public class DbTestClient {
         };
     }
 
+    /**
+     * Returns the count of rows matching all non-null fields of the input. No assertion
+     * is performed here — chain {@link Verify} steps to assert the count in a subsequent
+     * {@link Pipeline#then} call.
+     */
     public <T> StepFunction<T, Long> countByFields() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.COUNT_BY_FIELDS, input.getClass().getSimpleName());
@@ -99,6 +132,11 @@ public class DbTestClient {
         };
     }
 
+    /**
+     * Inserts the entity via a Hibernate session and asserts the stored result matches
+     * {@code expectedEntity}. Use for test setup when you need a specific record in the
+     * database before the system-under-test runs.
+     */
     public <T> StepFunction<DbRequest<T>, T> persist(T expectedEntity) {
         return (request, outerCtx) -> {
             log.info(DbTestClientLogTemplates.PERSIST, expectedEntity.getClass().getSimpleName());
@@ -114,6 +152,13 @@ public class DbTestClient {
         };
     }
 
+    /**
+     * Asserts an entity with the same {@code @Id} value exists in the database. Retries
+     * until found according to the configured {@link RetryConfig}. Returns the input
+     * unchanged so the value can continue through the pipeline.
+     *
+     * @see #notExistsById() for the negative case
+     */
     public <T> StepFunction<T, T> existsById() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.EXISTS, input.getClass().getSimpleName());
@@ -130,6 +175,11 @@ public class DbTestClient {
         };
     }
 
+    /**
+     * Asserts an entity with the same {@code @Id} value does not exist in the database.
+     * No retry — intended for synchronous deletions where absence is immediate. If you
+     * need to wait for an async deletion, wrap with {@link Retry#of} directly.
+     */
     public <T> StepFunction<T, T> notExistsById() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.NOT_EXISTS, input.getClass().getSimpleName());
@@ -143,6 +193,12 @@ public class DbTestClient {
         };
     }
 
+    /**
+     * Lower-level variant of {@link #existsById()} that accepts a pre-built
+     * {@link DbRequest} and returns the raw {@link DbResult}. Use when downstream steps
+     * need both the entity and the exists flag, or when you need finer control over the
+     * request parameters.
+     */
     public <T> StepFunction<DbRequest<T>, DbResult<T>> exists() {
         return (request, outerCtx) -> {
             log.info(DbTestClientLogTemplates.EXISTS, request.entityClass().getSimpleName());

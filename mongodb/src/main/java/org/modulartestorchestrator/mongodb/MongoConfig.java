@@ -6,6 +6,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Connection and collection mapping configuration for {@link MongoWrapper}. Each document
+ * class used in queries must be mapped to its MongoDB collection name via
+ * {@link Builder#collection} — an unmapped class causes an {@link IllegalArgumentException}
+ * at query time, not at construction time.
+ */
 public class MongoConfig {
 
     private final String connectionString;

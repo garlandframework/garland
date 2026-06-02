@@ -15,6 +15,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Thin Hibernate session factory wrapper used by {@link DbTestClient}. Opens a new
+ * session per operation — no persistent connection pool beyond Hibernate's built-in
+ * single-connection default.
+ *
+ * <p>Schema validation ({@code hbm2ddl.auto=validate}) runs at construction time. If the
+ * entity model does not match the live database schema, the constructor will throw.
+ *
+ * <p>Call {@link #close()} at suite teardown to release the session factory. Implement
+ * with {@code @AfterSuite} or {@code try-with-resources}.
+ */
 public class HibernateWrapper implements AutoCloseable {
 
     private final SessionFactory sessionFactory;

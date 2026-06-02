@@ -7,6 +7,10 @@ import org.slf4j.LoggerFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Assertion steps for database query results: entityExists and entityNotExists checks
+ * on {@link DbResult}. Used internally by {@link DbTestClient}.
+ */
 public class DbCheckSteps {
 
     private static final Logger log = LoggerFactory.getLogger(DbCheckSteps.class);
