@@ -45,11 +45,15 @@ public class KafkaConsumerWrapper {
         return Optional.empty();
     }
 
-    // Polls until partitions are actually assigned so AUTO_OFFSET_RESET=latest anchors before any test messages are produced.
+    // Anchors the consumer to the current end of the topic. Safe to call multiple times —
+    // use it once at suite start and again before any test section that uses consumeMatching,
+    // so stale events from previous sections are not consumed.
     public void warmup() {
         while (consumer.assignment().isEmpty()) {
             consumer.poll(Duration.ofMillis(500));
         }
+        consumer.seekToEnd(consumer.assignment());
+        consumer.poll(Duration.ofMillis(100)); // trigger lazy seek
         warmedUp = true;
     }
 
