@@ -27,7 +27,7 @@ Pipeline.given(request)
         .execute();
 ```
 
-`StepFunction<I, O>` is `(I input, PipelineContext ctx) -> O`. Each step receives the previous step's output as its input. Type safety is enforced at compile time — if steps don't chain correctly, it won't compile.
+`Step<I, O>` is `(I input, PipelineContext ctx) -> O`. Each step receives the previous step's output as its input. Type safety is enforced at compile time — if steps don't chain correctly, it won't compile.
 
 `execute()` runs the chain and returns the final output. Checked exceptions are wrapped in `RuntimeException` automatically.
 
@@ -86,20 +86,20 @@ Pipeline.given(created)
 
 ---
 
-## 3. StepFunction.lift and mapper bridges
+## 3. Step.lift and mapper bridges
 
-`StepFunction.lift(Function<I, O> fn)` wraps a plain function into a `StepFunction`. Use it when you need to compose a non-step mapping into a pipeline.
+`Step.lift(Function<I, O> fn)` wraps a plain function into a `Step`. Use it when you need to compose a non-step mapping into a pipeline.
 
 **Type inference warning:** If a mapper has overloaded methods (e.g. `toEntity(UserDto)`, `toEntity(AddressDto)`, `toEntity(CarDto)`), `lift(INSTANCE::toEntity)` will not compile — Java cannot resolve the overload. Always prefer the pre-defined static bridge methods on the mapper interface:
 
 ```java
 // Correct — static bridge has an unambiguous type
-UserTestMapper.toEntity()                  // StepFunction<UserDto, UserEntity>
-UserTestMapper.toCreatedEvent()            // StepFunction<UserDto, UserCreatedEvent>
-UserTestMapper.dtoToCreatedProjectionDoc() // StepFunction<UserDto, UserProjectionDoc>
+UserTestMapper.toEntity()                  // Step<UserDto, UserEntity>
+UserTestMapper.toCreatedEvent()            // Step<UserDto, UserCreatedEvent>
+UserTestMapper.dtoToCreatedProjectionDoc() // Step<UserDto, UserProjectionDoc>
 
 // Wrong — will fail to compile if toEntity() is overloaded
-StepFunction.lift(UserTestMapper.INSTANCE::toEntity)
+Step.lift(UserTestMapper.INSTANCE::toEntity)
 ```
 
 Bridges are chained with `.andThen()` to build branch expressions for `allOf`:
@@ -316,6 +316,6 @@ The login endpoint is excluded from token validation — using `httpClient` (whi
 
 **Do not use raw `assertThat` for values that come out of pipelines.** Keep assertions inside the pipeline using `Verify.matching`, `Verify.equalTo`, `Verify.containsAll`. Use `assertThat` only for assertions on data that lives entirely outside any pipeline (e.g. the `doesNotContain` list check after `Pipeline.execute()`).
 
-**Do not use `StepFunction.lift(INSTANCE::overloadedMethod)`.** If the mapper method has multiple overloads, type inference fails. Use the pre-defined static bridge on the mapper interface instead.
+**Do not use `Step.lift(INSTANCE::overloadedMethod)`.** If the mapper method has multiple overloads, type inference fails. Use the pre-defined static bridge on the mapper interface instead.
 
 **Do not use `PLACEHOLDER_USER_ID` in happy-path tests that persist to the database.** The placeholder is only valid for validation (400) tests where the service rejects the request before hitting the DB. Happy-path tests must create the referenced entity in a setup pipeline first.

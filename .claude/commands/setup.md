@@ -233,7 +233,7 @@ Generate the following files:
   - DTO → Entity
   - Entity → CreatedEvent
   - CreatedEvent → ProjectionDoc
-  - Pipeline-compatible static bridge methods returning `StepFunction`
+  - Pipeline-compatible static bridge methods returning `Step`
 
 **Infrastructure** (only if not already present — do not overwrite existing BaseTest or Connections):
 - `infrastructure/BaseTest.java` — declares clients for declared protocols; `@BeforeSuite` wires

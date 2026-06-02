@@ -32,15 +32,15 @@ This is a Maven multi-module project (`groupId: org.modulartestorchestrator`). C
 
 ### Core abstraction: Pipeline
 
-`Pipeline<I, O>` is an immutable, type-safe step chain. Each call to `.then(StepFunction<O, NO>)` returns a new `Pipeline<I, NO>` — the output type evolves with each step. Execution is eager and sequential via `.execute(input)`.
+`Pipeline<I, O>` is an immutable, type-safe step chain. Each call to `.then(Step<O, NO>)` returns a new `Pipeline<I, NO>` — the output type evolves with each step. Execution is eager and sequential via `.execute(input)`.
 
-`StepFunction<I, O>` is a `@FunctionalInterface` `(I input, PipelineContext ctx) -> O`. Steps can both transform data (return value) and share state sideways via the context.
+`Step<I, O>` is a `@FunctionalInterface` `(I input, PipelineContext ctx) -> O`. Steps can both transform data (return value) and share state sideways via the context.
 
 `PipelineContext` is a stringly-typed `Map<String, Object>` bag that flows through all steps. Steps read and write to it by convention (e.g., `"method"`, `"url"`, `"body"`, `"response"`). There is no schema enforcement — callers must know what keys downstream steps expect.
 
 ### HTTP layer
 
-`HttpSteps` provides four reusable `StepFunction`-compatible methods meant to be composed in order:
+`HttpSteps` provides four reusable `Step`-compatible methods meant to be composed in order:
 1. `serialize` — serializes the input DTO to JSON and stores it in `ctx["body"]`
 2. `call` — reads `ctx["method"]`, `ctx["url"]`, `ctx["body"]`; sends the request; stores the response in `ctx["response"]`
 3. `validate` — asserts 2xx status
