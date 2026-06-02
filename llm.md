@@ -249,6 +249,63 @@ A well-designed test suite covers every edge at least once:
 
 ---
 
+## 10. Auth — token acquisition and per-call overrides
+
+### How BaseTest wires auth
+
+Token acquisition lives in `@BeforeSuite`. The pattern is always the same — unauthenticated client calls the login endpoint, gets a token, then the shared client is replaced with an authenticated version:
+
+```java
+httpClient = new HttpTestClient(RetryConfig.of(3, Duration.ofSeconds(2)));
+
+TokenDto tokenDto = Pipeline.given(TestAuthRequests.login())
+        .then(httpClient.makeCall(200, TokenDto.class))
+        .execute();
+
+httpClient = httpClient.withBearer(tokenDto.token());
+```
+
+All tests in the suite share the authenticated `httpClient`. You do not acquire a token per test or per class.
+
+In projects using OAuth2 client credentials the pattern is identical — only the URL and request body of the login pipeline change.
+
+### withBearer / withoutHeader / withApiKey
+
+`HttpTestClient` is immutable. Every `with*` / `without*` call returns a **new instance** — the shared `httpClient` is never mutated:
+
+```java
+httpClient.withBearer("other-token")             // new instance, adds/replaces Authorization
+httpClient.withoutHeader("Authorization")         // new instance, removes Authorization
+httpClient.withApiKey("X-Api-Key", "key")         // new instance, adds header
+```
+
+Use these inline in a single `.then(...)` call for negative auth tests. Never reassign `httpClient` inside a test method — it is shared across the entire suite.
+
+### Negative auth tests
+
+```java
+// No token → 401
+Pipeline.given(TestUserRequests.createUser())
+        .then(httpClient.withoutHeader("Authorization")
+                .makeCall(new HttpCallResponse<>(401, Map.of(), ErrorDto.withStatus(401))))
+        .execute();
+
+// Invalid JWT → 401
+Pipeline.given(TestUserRequests.createUser())
+        .then(httpClient.withBearer("not-a-valid-jwt")
+                .makeCall(new HttpCallResponse<>(401, Map.of(), ErrorDto.withStatus(401))))
+        .execute();
+
+// Wrong credentials on login endpoint → 401
+Pipeline.given(TestAuthRequests.login("admin", "wrong-password"))
+        .then(httpClient.makeCall(new HttpCallResponse<>(401, Map.of(), ErrorDto.withStatus(401))))
+        .execute();
+```
+
+The login endpoint is excluded from token validation — using `httpClient` (which carries a bearer token) for login calls is harmless.
+
+---
+
 ## 9. Anti-patterns
 
 **Do not chain DB + Kafka sequentially when they are independent.** The old pattern `→ toEntity() → dbClient.findById() → entityToEvent() → kafkaClient.consumeMatching()` forces sequential execution and hides the fact that these are parallel side-effects. Use `Verify.allOf()` instead.
