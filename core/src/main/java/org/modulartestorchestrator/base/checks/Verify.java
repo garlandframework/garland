@@ -1,7 +1,7 @@
 package org.modulartestorchestrator.base.checks;
 
 import org.modulartestorchestrator.base.Pipeline;
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * Static entry point for assertions in test pipelines. Each method returns a
- * {@link StepFunction} that can be passed to {@link Pipeline#then}: the step asserts
+ * {@link Step} that can be passed to {@link Pipeline#then}: the step asserts
  * the condition and passes the value through unchanged on success, or throws
  * {@link AssertionError} on failure.
  *
@@ -30,7 +30,7 @@ public final class Verify {
      *
      * @see #equalTo(Object) for strict comparison where every field must match
      */
-    public static <T> StepFunction<T, T> matching(T expected) {
+    public static <T> Step<T, T> matching(T expected) {
         return CHECK.matchingNonNull(expected);
     }
 
@@ -47,7 +47,7 @@ public final class Verify {
      *       start and {@code temporalTolerance} to the maximum acceptable processing delay.</li>
      * </ul>
      */
-    public static <T> StepFunction<T, T> matching(T expected, Duration temporalTolerance) {
+    public static <T> Step<T, T> matching(T expected, Duration temporalTolerance) {
         return CHECK.matchingNonNull(expected, temporalTolerance);
     }
 
@@ -58,7 +58,7 @@ public final class Verify {
      *
      * @see #matching(Object) for the more commonly useful null-field-ignoring variant
      */
-    public static <T> StepFunction<T, T> equalTo(T expected) {
+    public static <T> Step<T, T> equalTo(T expected) {
         return CHECK.equalTo(expected);
     }
 
@@ -67,7 +67,7 @@ public final class Verify {
      * null fields in expected elements are ignored. The actual list may contain
      * additional elements beyond those in {@code expected}.
      */
-    public static <T> StepFunction<List<T>, List<T>> containsAll(Collection<T> expected) {
+    public static <T> Step<List<T>, List<T>> containsAll(Collection<T> expected) {
         return CHECK.containsAll(expected);
     }
 
@@ -93,10 +93,10 @@ public final class Verify {
      * }</pre>
      */
     @SafeVarargs
-    public static <T> StepFunction<T, T> allOf(StepFunction<T, ?>... branches) {
+    public static <T> Step<T, T> allOf(Step<T, ?>... branches) {
         return (input, ctx) -> {
             List<Throwable> failures = new ArrayList<>();
-            for (StepFunction<T, ?> branch : branches) {
+            for (Step<T, ?> branch : branches) {
                 try {
                     branch.apply(input, ctx);
                 } catch (Throwable t) {

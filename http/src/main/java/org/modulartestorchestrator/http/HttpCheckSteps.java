@@ -1,6 +1,6 @@
 package org.modulartestorchestrator.http;
 
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 import org.modulartestorchestrator.http.model.Header;
 import org.modulartestorchestrator.http.model.HttpCallResponse;
 import org.slf4j.Logger;
@@ -19,7 +19,7 @@ public class HttpCheckSteps {
 
     private static final Logger log = LoggerFactory.getLogger(HttpCheckSteps.class);
 
-    public StepFunction<HttpResponse<String>, HttpResponse<String>> statusCode(int expected) {
+    public Step<HttpResponse<String>, HttpResponse<String>> statusCode(int expected) {
         return (response, ctx) -> {
             log.info(HttpCheckStepsLogTemplates.STATUS_CHECKING, expected, response.statusCode());
             assertThat(response.statusCode())
@@ -30,7 +30,7 @@ public class HttpCheckSteps {
         };
     }
 
-    public <T> StepFunction<HttpCallResponse<T>, HttpCallResponse<T>> headersContain(List<Header> expected) {
+    public <T> Step<HttpCallResponse<T>, HttpCallResponse<T>> headersContain(List<Header> expected) {
         return (response, ctx) -> {
             log.info(HttpCheckStepsLogTemplates.HEADERS_CHECKING, expected);
             expected.forEach(h ->

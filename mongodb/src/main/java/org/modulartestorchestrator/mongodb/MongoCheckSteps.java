@@ -1,6 +1,6 @@
 package org.modulartestorchestrator.mongodb;
 
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 import org.modulartestorchestrator.mongodb.model.MongoResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +15,7 @@ public class MongoCheckSteps {
 
     private static final Logger log = LoggerFactory.getLogger(MongoCheckSteps.class);
 
-    public <T> StepFunction<MongoResult<T>, MongoResult<T>> documentExists() {
+    public <T> Step<MongoResult<T>, MongoResult<T>> documentExists() {
         return (result, ctx) -> {
             log.info(MongoCheckStepsLogTemplates.CHECKING_EXISTS);
             assertThat(result.exists())
@@ -26,7 +26,7 @@ public class MongoCheckSteps {
         };
     }
 
-    public <T> StepFunction<MongoResult<T>, MongoResult<T>> documentNotExists() {
+    public <T> Step<MongoResult<T>, MongoResult<T>> documentNotExists() {
         return (result, ctx) -> {
             log.info(MongoCheckStepsLogTemplates.CHECKING_NOT_EXISTS);
             assertThat(result.exists())

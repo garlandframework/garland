@@ -1,6 +1,6 @@
 package org.modulartestorchestrator.postgres;
 
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 import org.modulartestorchestrator.postgres.model.DbResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +15,7 @@ public class DbCheckSteps {
 
     private static final Logger log = LoggerFactory.getLogger(DbCheckSteps.class);
 
-    public <T> StepFunction<DbResult<T>, DbResult<T>> entityExists() {
+    public <T> Step<DbResult<T>, DbResult<T>> entityExists() {
         return (result, ctx) -> {
             log.info(DbCheckStepsLogTemplates.CHECKING_EXISTS);
             assertThat(result.exists())
@@ -26,7 +26,7 @@ public class DbCheckSteps {
         };
     }
 
-    public <T> StepFunction<DbResult<T>, DbResult<T>> entityNotExists() {
+    public <T> Step<DbResult<T>, DbResult<T>> entityNotExists() {
         return (result, ctx) -> {
             log.info(DbCheckStepsLogTemplates.CHECKING_NOT_EXISTS);
             assertThat(result.exists())

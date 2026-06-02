@@ -2,7 +2,7 @@ package org.modulartestorchestrator.mongodb;
 
 import org.modulartestorchestrator.base.Pipeline;
 import org.modulartestorchestrator.base.PipelineContext;
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 import org.modulartestorchestrator.base.checks.CheckSteps;
 import org.modulartestorchestrator.base.retry.Retry;
 import org.modulartestorchestrator.base.retry.RetryConfig;
@@ -53,13 +53,13 @@ public class MongoTestClient {
      *
      * @see #findById(Duration) when the document contains timestamp fields
      */
-    public <T> StepFunction<T, T> findById() {
+    public <T> Step<T, T> findById() {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
             T result = Pipeline.given(MongoRequest.findById(input))
                     .withContext(outerCtx)
                     .then(Retry.of(
-                            StepFunction.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::findById)
+                            Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::findById)
                                     .andThen(mongoCheck.documentExists()),
                             retryConfig
                     ))
@@ -76,13 +76,13 @@ public class MongoTestClient {
      * Use {@code Duration.ofMillis(1)} to absorb MongoDB's millisecond truncation when
      * your documents are constructed with nanosecond-precision {@code Instant} values.
      */
-    public <T> StepFunction<T, T> findById(Duration temporalTolerance) {
+    public <T> Step<T, T> findById(Duration temporalTolerance) {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
             T result = Pipeline.given(MongoRequest.findById(input))
                     .withContext(outerCtx)
                     .then(Retry.of(
-                            StepFunction.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::findById)
+                            Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::findById)
                                     .andThen(mongoCheck.documentExists()),
                             retryConfig
                     ))
@@ -99,13 +99,13 @@ public class MongoTestClient {
      * and asserts it matches. Throws {@link IllegalStateException} if more than one
      * document matches — narrow your criteria or use {@link #countByFields()}.
      */
-    public <T> StepFunction<T, T> findByFields() {
+    public <T> Step<T, T> findByFields() {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.FIND_BY_FIELDS, input.getClass().getSimpleName());
             T result = Pipeline.given(MongoRequest.findByFields(input))
                     .withContext(outerCtx)
                     .then(Retry.of(
-                            StepFunction.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::findByFields)
+                            Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::findByFields)
                                     .andThen(mongoCheck.documentExists()),
                             retryConfig
                     ))
@@ -121,7 +121,7 @@ public class MongoTestClient {
      * Returns the count of documents matching all non-null fields. No assertion is
      * performed — chain {@link org.modulartestorchestrator.base.checks.Verify} steps to assert the count.
      */
-    public <T> StepFunction<T, Long> countByFields() {
+    public <T> Step<T, Long> countByFields() {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.COUNT_BY_FIELDS, input.getClass().getSimpleName());
             Long count = Pipeline.given(MongoRequest.countByFields(input))
@@ -138,7 +138,7 @@ public class MongoTestClient {
      * Use for test setup when you need a specific document in the collection before the
      * system-under-test runs.
      */
-    public <T> StepFunction<MongoRequest<T>, T> persist(T expectedDocument) {
+    public <T> Step<MongoRequest<T>, T> persist(T expectedDocument) {
         return (request, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.PERSIST, expectedDocument.getClass().getSimpleName());
             T result = Pipeline.given(request)
@@ -159,13 +159,13 @@ public class MongoTestClient {
      *
      * @see #notExistsById() for the negative case
      */
-    public <T> StepFunction<T, T> existsById() {
+    public <T> Step<T, T> existsById() {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.EXISTS, input.getClass().getSimpleName());
             Pipeline.given(MongoRequest.findById(input))
                     .withContext(outerCtx)
                     .then(Retry.of(
-                            StepFunction.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::exists)
+                            Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::exists)
                                     .andThen(mongoCheck.documentExists()),
                             retryConfig
                     ))
@@ -179,7 +179,7 @@ public class MongoTestClient {
      * Asserts a document with the same ID does not exist. No retry — intended for
      * synchronous deletions where absence is immediate.
      */
-    public <T> StepFunction<T, T> notExistsById() {
+    public <T> Step<T, T> notExistsById() {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.NOT_EXISTS, input.getClass().getSimpleName());
             Pipeline.given(MongoRequest.findById(input))
@@ -197,7 +197,7 @@ public class MongoTestClient {
      * {@link MongoRequest} and returns the raw {@link MongoResult}. Use when downstream
      * steps need both the document and the exists flag.
      */
-    public <T> StepFunction<MongoRequest<T>, MongoResult<T>> exists() {
+    public <T> Step<MongoRequest<T>, MongoResult<T>> exists() {
         return (request, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.EXISTS, request.documentClass().getSimpleName());
             return Pipeline.given(request)
@@ -208,7 +208,7 @@ public class MongoTestClient {
         };
     }
 
-    public <T> StepFunction<MongoRequest<T>, Void> delete() {
+    public <T> Step<MongoRequest<T>, Void> delete() {
         return (request, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.DELETE, request.documentClass().getSimpleName());
             return Pipeline.given(request)

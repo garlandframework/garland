@@ -2,7 +2,7 @@ package org.modulartestorchestrator.base.checks;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +26,7 @@ public class CheckSteps {
     private static final Logger log = LoggerFactory.getLogger(CheckSteps.class);
     private static final ObjectMapper MAPPER = new ObjectMapper().findAndRegisterModules();
 
-    public <T> StepFunction<T, T> equalTo(T expected) {
+    public <T> Step<T, T> equalTo(T expected) {
         return (actual, ctx) -> {
             log.info(CheckLogTemplates.CHECKING, toJson(expected), toJson(actual));
             assertThat(actual)
@@ -40,7 +40,7 @@ public class CheckSteps {
         };
     }
 
-    public <T> StepFunction<T, T> matchingNonNull(T expected) {
+    public <T> Step<T, T> matchingNonNull(T expected) {
         return (actual, ctx) -> {
             log.info(CheckLogTemplates.CHECKING, toJson(expected), toJson(actual));
             assertThat(actual)
@@ -65,7 +65,7 @@ public class CheckSteps {
      *   2. SLA window for server-generated timestamps — set expected = Instant.now() at test
      *      start, tolerance = max acceptable processing delay (e.g. Duration.ofMinutes(1.5)).
      */
-    public <T> StepFunction<T, T> matchingNonNull(T expected, Duration temporalTolerance) {
+    public <T> Step<T, T> matchingNonNull(T expected, Duration temporalTolerance) {
         long toleranceNanos = temporalTolerance.toNanos();
         return (actual, ctx) -> {
             log.info(CheckLogTemplates.CHECKING, toJson(expected), toJson(actual));
@@ -93,7 +93,7 @@ public class CheckSteps {
         };
     }
 
-    public <T> StepFunction<List<T>, List<T>> containsAll(Collection<T> expected) {
+    public <T> Step<List<T>, List<T>> containsAll(Collection<T> expected) {
         return (actual, ctx) -> {
             log.info(CheckLogTemplates.CHECKING, toJson(expected), toJson(actual));
             RecursiveComparisonConfiguration config = RecursiveComparisonConfiguration.builder()

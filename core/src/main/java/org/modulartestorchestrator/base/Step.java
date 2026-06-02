@@ -14,7 +14,7 @@ import java.util.function.Function;
  * @param <O> output type
  */
 @FunctionalInterface
-public interface StepFunction<I, O> {
+public interface Step<I, O> {
 
     O apply(I input, PipelineContext ctx) throws Exception;
 
@@ -23,7 +23,7 @@ public interface StepFunction<I, O> {
      * {@link #andThen} chain from a method reference. Without it, the compiler often
      * cannot infer {@code I} and {@code O} from the target method alone.
      */
-    static <I, O> StepFunction<I, O> of(StepFunction<I, O> fn) {
+    static <I, O> Step<I, O> of(Step<I, O> fn) {
         return fn;
     }
 
@@ -31,7 +31,7 @@ public interface StepFunction<I, O> {
      * Adapts a context-unaware {@link Function} into a step. Use when you have a plain
      * transformation that does not need to read or write the context.
      */
-    static <I, O> StepFunction<I, O> lift(Function<I, O> fn) {
+    static <I, O> Step<I, O> lift(Function<I, O> fn) {
         return (input, ctx) -> fn.apply(input);
     }
 
@@ -41,7 +41,7 @@ public interface StepFunction<I, O> {
      * stashing it in context — reserve this for values needed several steps downstream
      * that would otherwise need to be threaded through intermediate steps.
      */
-    static <T> StepFunction<T, T> saveToContext(String key) {
+    static <T> Step<T, T> saveToContext(String key) {
         return (value, ctx) -> {
             ctx.put(key, value);
             return value;
@@ -52,7 +52,7 @@ public interface StepFunction<I, O> {
      * Composes this step with {@code next}, producing a step that runs both in sequence.
      * Both steps share the same {@link PipelineContext} instance.
      */
-    default <R> StepFunction<I, R> andThen(StepFunction<O, R> next) {
+    default <R> Step<I, R> andThen(Step<O, R> next) {
         return (input, ctx) -> next.apply(this.apply(input, ctx), ctx);
     }
 }

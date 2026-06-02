@@ -3,7 +3,7 @@ package org.modulartestorchestrator.http;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.modulartestorchestrator.base.Pipeline;
 import org.modulartestorchestrator.base.PipelineContext;
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 import org.modulartestorchestrator.base.checks.CheckSteps;
 import org.modulartestorchestrator.base.retry.Retry;
 import org.modulartestorchestrator.base.retry.RetryConfig;
@@ -22,7 +22,7 @@ import java.util.Map;
 
 /**
  * High-level HTTP client for test pipelines. Combines request execution, status assertion,
- * response deserialization, and optional body matching into a single {@link StepFunction}.
+ * response deserialization, and optional body matching into a single {@link Step}.
  *
  * <p><strong>Auth and headers are stored in the instance.</strong> {@link #withBearer},
  * {@link #withHeader}, and {@link #withApiKey} each return a new instance — the original
@@ -107,7 +107,7 @@ public class HttpTestClient {
      * @see #makeCall(int, Class) for error responses where you need only the status
      */
     @SuppressWarnings("unchecked")
-    public <T, R> StepFunction<HttpCallRequest<T>, R> makeCall(HttpCallResponse<R> expected) {
+    public <T, R> Step<HttpCallRequest<T>, R> makeCall(HttpCallResponse<R> expected) {
         Class<R> responseType = (Class<R>) expected.dto().getClass();
         List<Header> expectedHeaders = expected.headers().entrySet().stream()
                 .flatMap(e -> e.getValue().stream().map(v -> new Header(e.getKey(), v)))
@@ -130,7 +130,7 @@ public class HttpTestClient {
      * deserialization. Use when {@code R} is a generic type (e.g. {@code List<UserDto>})
      * that would be erased to {@code Object} with a plain {@code Class<R>}.
      */
-    public <T, R> StepFunction<HttpCallRequest<T>, R> makeCall(HttpCallResponse<R> expected, TypeReference<R> typeRef) {
+    public <T, R> Step<HttpCallRequest<T>, R> makeCall(HttpCallResponse<R> expected, TypeReference<R> typeRef) {
         List<Header> expectedHeaders = expected.headers().entrySet().stream()
                 .flatMap(e -> e.getValue().stream().map(v -> new Header(e.getKey(), v)))
                 .toList();
@@ -152,7 +152,7 @@ public class HttpTestClient {
      * {@code temporalTolerance} when comparing timestamp fields. Use when the response
      * body contains server-generated timestamps.
      */
-    public <T, R> StepFunction<HttpCallRequest<T>, R> makeCall(HttpCallResponse<R> expected, TypeReference<R> typeRef, Duration temporalTolerance) {
+    public <T, R> Step<HttpCallRequest<T>, R> makeCall(HttpCallResponse<R> expected, TypeReference<R> typeRef, Duration temporalTolerance) {
         List<Header> expectedHeaders = expected.headers().entrySet().stream()
                 .flatMap(e -> e.getValue().stream().map(v -> new Header(e.getKey(), v)))
                 .toList();
@@ -175,7 +175,7 @@ public class HttpTestClient {
      * timestamps — see {@link Verify#matching(Object, Duration)} for details.
      */
     @SuppressWarnings("unchecked")
-    public <T, R> StepFunction<HttpCallRequest<T>, R> makeCall(HttpCallResponse<R> expected, Duration temporalTolerance) {
+    public <T, R> Step<HttpCallRequest<T>, R> makeCall(HttpCallResponse<R> expected, Duration temporalTolerance) {
         Class<R> responseType = (Class<R>) expected.dto().getClass();
         List<Header> expectedHeaders = expected.headers().entrySet().stream()
                 .flatMap(e -> e.getValue().stream().map(v -> new Header(e.getKey(), v)))
@@ -198,7 +198,7 @@ public class HttpTestClient {
      * response body without further matching. Use for error responses and other cases where
      * you need the deserialized body but do not want to assert its content here.
      */
-    public <T, R> StepFunction<HttpCallRequest<T>, R> makeCall(int expectedStatus, Class<R> responseType) {
+    public <T, R> Step<HttpCallRequest<T>, R> makeCall(int expectedStatus, Class<R> responseType) {
         return (request, outerCtx) -> {
             HttpCallRequest<T> merged = mergeHeaders(request);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
@@ -213,7 +213,7 @@ public class HttpTestClient {
      * Same as {@link #makeCall(int, Class)} but uses a {@link TypeReference} for
      * deserialization of generic response types.
      */
-    public <T, R> StepFunction<HttpCallRequest<T>, R> makeCall(int expectedStatus, TypeReference<R> typeRef) {
+    public <T, R> Step<HttpCallRequest<T>, R> makeCall(int expectedStatus, TypeReference<R> typeRef) {
         return (request, outerCtx) -> {
             HttpCallRequest<T> merged = mergeHeaders(request);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
@@ -233,12 +233,12 @@ public class HttpTestClient {
      * <p>Note that this overrides the client's default {@link RetryConfig} for this call only.
      */
     @SuppressWarnings("unchecked")
-    public <T, R> StepFunction<HttpCallRequest<T>, R> pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig) {
+    public <T, R> Step<HttpCallRequest<T>, R> pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig) {
         Class<R> responseType = (Class<R>) expectedDto.getClass();
         return (request, outerCtx) -> Pipeline.given(mergeHeaders(request))
                 .withContext(outerCtx)
                 .then(Retry.of(
-                        StepFunction.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
+                        Step.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                                 .andThen(httpCheck.statusCode(expectedStatus))
                                 .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
                                 .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
@@ -253,12 +253,12 @@ public class HttpTestClient {
      * {@code temporalTolerance} when comparing timestamp fields in the response body.
      */
     @SuppressWarnings("unchecked")
-    public <T, R> StepFunction<HttpCallRequest<T>, R> pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig, Duration temporalTolerance) {
+    public <T, R> Step<HttpCallRequest<T>, R> pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig, Duration temporalTolerance) {
         Class<R> responseType = (Class<R>) expectedDto.getClass();
         return (request, outerCtx) -> Pipeline.given(mergeHeaders(request))
                 .withContext(outerCtx)
                 .then(Retry.of(
-                        StepFunction.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
+                        Step.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                                 .andThen(httpCheck.statusCode(expectedStatus))
                                 .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
                                 .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
@@ -281,10 +281,10 @@ public class HttpTestClient {
         return new HttpCallRequest<>(request.url(), request.method(), mergedList, request.dto());
     }
 
-    private <T, R> StepFunction<HttpCallRequest<T>, R> buildCallAndCheck(
+    private <T, R> Step<HttpCallRequest<T>, R> buildCallAndCheck(
             Class<R> responseType, int expectedStatus, List<Header> expectedHeaders, R expectedDto) {
 
-        return StepFunction
+        return Step
                 .<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(expectedStatus))
                 .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
@@ -293,10 +293,10 @@ public class HttpTestClient {
                 .andThen(check.matchingNonNull(expectedDto));
     }
 
-    private <T, R> StepFunction<HttpCallRequest<T>, R> buildCallAndCheck(
+    private <T, R> Step<HttpCallRequest<T>, R> buildCallAndCheck(
             Class<R> responseType, int expectedStatus, List<Header> expectedHeaders, R expectedDto, Duration temporalTolerance) {
 
-        return StepFunction
+        return Step
                 .<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(expectedStatus))
                 .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
@@ -305,10 +305,10 @@ public class HttpTestClient {
                 .andThen(check.matchingNonNull(expectedDto, temporalTolerance));
     }
 
-    private <T, R> StepFunction<HttpCallRequest<T>, R> buildCallAndCheck(
+    private <T, R> Step<HttpCallRequest<T>, R> buildCallAndCheck(
             TypeReference<R> typeRef, int expectedStatus, List<Header> expectedHeaders, R expectedDto) {
 
-        return StepFunction
+        return Step
                 .<HttpCallRequest<T>, java.net.http.HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(expectedStatus))
                 .andThen((java.net.http.HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, typeRef))
@@ -317,10 +317,10 @@ public class HttpTestClient {
                 .andThen(check.matchingNonNull(expectedDto));
     }
 
-    private <T, R> StepFunction<HttpCallRequest<T>, R> buildCallAndCheck(
+    private <T, R> Step<HttpCallRequest<T>, R> buildCallAndCheck(
             TypeReference<R> typeRef, int expectedStatus, List<Header> expectedHeaders, R expectedDto, Duration temporalTolerance) {
 
-        return StepFunction
+        return Step
                 .<HttpCallRequest<T>, java.net.http.HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(expectedStatus))
                 .andThen((java.net.http.HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, typeRef))
@@ -329,16 +329,16 @@ public class HttpTestClient {
                 .andThen(check.matchingNonNull(expectedDto, temporalTolerance));
     }
 
-    private <T, R> StepFunction<HttpCallRequest<T>, R> buildCallWithStatusCheck(int expectedStatus, Class<R> responseType) {
-        return StepFunction
+    private <T, R> Step<HttpCallRequest<T>, R> buildCallWithStatusCheck(int expectedStatus, Class<R> responseType) {
+        return Step
                 .<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(expectedStatus))
                 .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
                 .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto());
     }
 
-    private <T, R> StepFunction<HttpCallRequest<T>, R> buildCallWithStatusCheck(int expectedStatus, TypeReference<R> typeRef) {
-        return StepFunction
+    private <T, R> Step<HttpCallRequest<T>, R> buildCallWithStatusCheck(int expectedStatus, TypeReference<R> typeRef) {
+        return Step
                 .<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
                 .andThen(httpCheck.statusCode(expectedStatus))
                 .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, typeRef))

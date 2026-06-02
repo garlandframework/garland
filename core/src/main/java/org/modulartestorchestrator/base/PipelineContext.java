@@ -13,7 +13,7 @@ import java.util.Map;
  * to the context — context is for values needed several steps downstream that would
  * otherwise need to be threaded through intermediate steps.
  *
- * @see StepFunction#saveToContext(String)
+ * @see Step#saveToContext(String)
  */
 public class PipelineContext {
 

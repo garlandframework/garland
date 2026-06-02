@@ -2,7 +2,7 @@ package org.modulartestorchestrator.postgres;
 
 import org.modulartestorchestrator.base.Pipeline;
 import org.modulartestorchestrator.base.PipelineContext;
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 import org.modulartestorchestrator.base.checks.CheckSteps;
 import org.modulartestorchestrator.base.retry.Retry;
 import org.modulartestorchestrator.base.retry.RetryConfig;
@@ -15,7 +15,7 @@ import java.time.Duration;
 
 /**
  * Test client for PostgreSQL assertions via Hibernate. Each method returns a
- * {@link StepFunction} that queries the database and asserts the result, retrying
+ * {@link Step} that queries the database and asserts the result, retrying
  * according to the configured {@link RetryConfig}.
  *
  * <p>Entity classes must be registered with {@link DbConfig} before constructing this client.
@@ -47,13 +47,13 @@ public class DbTestClient {
      * (null fields ignored). Retries if the entity is not yet present — useful after an
      * async write where the row may not be immediately visible.
      */
-    public <T> StepFunction<T, T> findById() {
+    public <T> Step<T, T> findById() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
             T result = Pipeline.given(DbRequest.findById(input))
                     .withContext(outerCtx)
                     .then(Retry.of(
-                            StepFunction.<DbRequest<T>, DbResult<T>>of(dbSteps::findById)
+                            Step.<DbRequest<T>, DbResult<T>>of(dbSteps::findById)
                                     .andThen(dbCheck.entityExists()),
                             retryConfig
                     ))
@@ -70,13 +70,13 @@ public class DbTestClient {
      * Use when entity timestamps are truncated by the database driver or when comparing
      * server-generated timestamps to locally-constructed expected values.
      */
-    public <T> StepFunction<T, T> findById(Duration temporalTolerance) {
+    public <T> Step<T, T> findById(Duration temporalTolerance) {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
             T result = Pipeline.given(DbRequest.findById(input))
                     .withContext(outerCtx)
                     .then(Retry.of(
-                            StepFunction.<DbRequest<T>, DbResult<T>>of(dbSteps::findById)
+                            Step.<DbRequest<T>, DbResult<T>>of(dbSteps::findById)
                                     .andThen(dbCheck.entityExists()),
                             retryConfig
                     ))
@@ -97,13 +97,13 @@ public class DbTestClient {
      * criteria or switch to {@link #countByFields()} if you need multi-row results.
      * Use this when the entity ID is not known before insertion.
      */
-    public <T> StepFunction<T, T> findByFields() {
+    public <T> Step<T, T> findByFields() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.FIND_BY_FIELDS, input.getClass().getSimpleName());
             T result = Pipeline.given(DbRequest.findByFields(input))
                     .withContext(outerCtx)
                     .then(Retry.of(
-                            StepFunction.<DbRequest<T>, DbResult<T>>of(dbSteps::findByFields)
+                            Step.<DbRequest<T>, DbResult<T>>of(dbSteps::findByFields)
                                     .andThen(dbCheck.entityExists()),
                             retryConfig
                     ))
@@ -120,7 +120,7 @@ public class DbTestClient {
      * is performed here — chain {@link Verify} steps to assert the count in a subsequent
      * {@link Pipeline#then} call.
      */
-    public <T> StepFunction<T, Long> countByFields() {
+    public <T> Step<T, Long> countByFields() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.COUNT_BY_FIELDS, input.getClass().getSimpleName());
             Long count = Pipeline.given(DbRequest.countByFields(input))
@@ -137,7 +137,7 @@ public class DbTestClient {
      * {@code expectedEntity}. Use for test setup when you need a specific record in the
      * database before the system-under-test runs.
      */
-    public <T> StepFunction<DbRequest<T>, T> persist(T expectedEntity) {
+    public <T> Step<DbRequest<T>, T> persist(T expectedEntity) {
         return (request, outerCtx) -> {
             log.info(DbTestClientLogTemplates.PERSIST, expectedEntity.getClass().getSimpleName());
             T result = Pipeline.given(request)
@@ -159,13 +159,13 @@ public class DbTestClient {
      *
      * @see #notExistsById() for the negative case
      */
-    public <T> StepFunction<T, T> existsById() {
+    public <T> Step<T, T> existsById() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.EXISTS, input.getClass().getSimpleName());
             Pipeline.given(DbRequest.exists(input))
                     .withContext(outerCtx)
                     .then(Retry.of(
-                            StepFunction.<DbRequest<T>, DbResult<T>>of(dbSteps::exists)
+                            Step.<DbRequest<T>, DbResult<T>>of(dbSteps::exists)
                                     .andThen(dbCheck.entityExists()),
                             retryConfig
                     ))
@@ -180,7 +180,7 @@ public class DbTestClient {
      * No retry — intended for synchronous deletions where absence is immediate. If you
      * need to wait for an async deletion, wrap with {@link Retry#of} directly.
      */
-    public <T> StepFunction<T, T> notExistsById() {
+    public <T> Step<T, T> notExistsById() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.NOT_EXISTS, input.getClass().getSimpleName());
             Pipeline.given(DbRequest.exists(input))
@@ -199,7 +199,7 @@ public class DbTestClient {
      * need both the entity and the exists flag, or when you need finer control over the
      * request parameters.
      */
-    public <T> StepFunction<DbRequest<T>, DbResult<T>> exists() {
+    public <T> Step<DbRequest<T>, DbResult<T>> exists() {
         return (request, outerCtx) -> {
             log.info(DbTestClientLogTemplates.EXISTS, request.entityClass().getSimpleName());
             return Pipeline.given(request)
@@ -210,7 +210,7 @@ public class DbTestClient {
         };
     }
 
-    public <T> StepFunction<DbRequest<T>, Void> delete() {
+    public <T> Step<DbRequest<T>, Void> delete() {
         return (request, outerCtx) -> {
             log.info(DbTestClientLogTemplates.DELETE, request.entityClass().getSimpleName());
             return Pipeline.given(request)

@@ -3,7 +3,7 @@ package org.modulartestorchestrator.http;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.modulartestorchestrator.base.PipelineContext;
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 import org.modulartestorchestrator.http.model.Header;
 import org.modulartestorchestrator.http.model.HttpCallRequest;
 import org.modulartestorchestrator.http.model.HttpCallResponse;
@@ -47,7 +47,7 @@ public class HttpSteps {
         return new HttpCallResponse<>(response.statusCode(), response.headers().map(), dto);
     }
 
-    public <T> StepFunction<java.net.http.HttpResponse<String>, HttpCallResponse<T>> deserialize(Class<T> type) {
+    public <T> Step<java.net.http.HttpResponse<String>, HttpCallResponse<T>> deserialize(Class<T> type) {
         return (response, ctx) -> deserialize(response, type);
     }
 
@@ -59,7 +59,7 @@ public class HttpSteps {
         return new HttpCallResponse<>(response.statusCode(), response.headers().map(), dto);
     }
 
-    public static <T> StepFunction<HttpCallResponse<T>, T> extractDto() {
+    public static <T> Step<HttpCallResponse<T>, T> extractDto() {
         return (response, ctx) -> response.dto();
     }
 }

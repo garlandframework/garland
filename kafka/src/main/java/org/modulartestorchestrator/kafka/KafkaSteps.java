@@ -2,7 +2,7 @@ package org.modulartestorchestrator.kafka;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 import org.modulartestorchestrator.kafka.model.KafkaMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +29,7 @@ public class KafkaSteps {
         this.topic    = topic;
     }
 
-    public <I, T> StepFunction<I, T> consume(Class<T> type) {
+    public <I, T> Step<I, T> consume(Class<T> type) {
         return (input, ctx) -> {
             log.info(KafkaStepsLogTemplates.CONSUMING, topic);
             Optional<ConsumerRecord<String, String>> record = consumer.poll(Duration.ofMillis(500));
@@ -43,7 +43,7 @@ public class KafkaSteps {
         };
     }
 
-    public <T> StepFunction<KafkaMessage<T>, KafkaMessage<T>> produce() {
+    public <T> Step<KafkaMessage<T>, KafkaMessage<T>> produce() {
         return (message, ctx) -> {
             log.info(KafkaStepsLogTemplates.PRODUCING, topic, message.key());
             String json = mapper.writeValueAsString(message.value());

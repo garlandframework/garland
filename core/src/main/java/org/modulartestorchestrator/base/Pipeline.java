@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Immutable, type-safe step chain. Each {@link #then(StepFunction)} call returns a new
+ * Immutable, type-safe step chain. Each {@link #then(Step)} call returns a new
  * {@code Pipeline} with an evolved output type — the current instance is never modified.
  *
  * <p>Execution is eager and sequential: steps run in order, each receiving the previous
@@ -47,10 +47,10 @@ public class Pipeline<I, O> {
         return new Pipeline<>(input, steps, externalCtx);
     }
 
-    /** Returns a new {@code Pipeline} extended with {@code fn}. This instance is not modified. */
-    public <NO> Pipeline<I, NO> then(StepFunction<O, NO> fn) {
+    /** Returns a new {@code Pipeline} extended with {@code step}. This instance is not modified. */
+    public <NO> Pipeline<I, NO> then(Step<O, NO> step) {
         List<Step<?, ?>> newSteps = new ArrayList<>(steps);
-        newSteps.add(new Step<>(fn));
+        newSteps.add(step);
         return new Pipeline<>(input, newSteps, ctx);
     }
 
@@ -76,18 +76,5 @@ public class Pipeline<I, O> {
             current = step.apply(current, ctx);
         }
         return (O) current;
-    }
-
-    private static class Step<A, B> {
-
-        private final StepFunction<A, B> fn;
-
-        Step(StepFunction<A, B> fn) {
-            this.fn = fn;
-        }
-
-        B apply(A input, PipelineContext ctx) throws Exception {
-            return fn.apply(input, ctx);
-        }
     }
 }

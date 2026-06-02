@@ -1,7 +1,7 @@
 package org.modulartestorchestrator.base.retry;
 
 import org.modulartestorchestrator.base.PipelineContext;
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 import org.testng.annotations.Test;
 
 import java.time.Duration;
@@ -16,7 +16,7 @@ public class RetryTest {
 
     @Test
     public void succeeds_on_first_attempt() throws Exception {
-        StepFunction<String, String> step = Retry.of(
+        Step<String, String> step = Retry.of(
                 (input, c) -> input.toUpperCase(),
                 RetryConfig.attempts(3));
 
@@ -26,7 +26,7 @@ public class RetryTest {
     @Test
     public void retries_and_succeeds_after_failures() throws Exception {
         AtomicInteger calls = new AtomicInteger();
-        StepFunction<String, String> step = Retry.of(
+        Step<String, String> step = Retry.of(
                 (input, c) -> {
                     if (calls.incrementAndGet() < 3) throw new AssertionError("not yet");
                     return "ok";
@@ -40,7 +40,7 @@ public class RetryTest {
     @Test
     public void exhausts_retries_and_rethrows_last_exception() {
         AtomicInteger calls = new AtomicInteger();
-        StepFunction<String, String> step = Retry.of(
+        Step<String, String> step = Retry.of(
                 (input, c) -> { calls.incrementAndGet(); throw new AssertionError("fail " + calls.get()); },
                 RetryConfig.attempts(3));
 
@@ -53,7 +53,7 @@ public class RetryTest {
 
     @Test
     public void rethrows_error_directly_without_wrapping() {
-        StepFunction<String, String> step = Retry.of(
+        Step<String, String> step = Retry.of(
                 (input, c) -> { throw new OutOfMemoryError("oom"); },
                 RetryConfig.attempts(2));
 

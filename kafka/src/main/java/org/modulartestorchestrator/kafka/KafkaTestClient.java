@@ -2,7 +2,7 @@ package org.modulartestorchestrator.kafka;
 
 import org.modulartestorchestrator.base.Pipeline;
 import org.modulartestorchestrator.base.PipelineContext;
-import org.modulartestorchestrator.base.StepFunction;
+import org.modulartestorchestrator.base.Step;
 import org.modulartestorchestrator.base.checks.CheckSteps;
 import org.modulartestorchestrator.base.retry.Retry;
 import org.modulartestorchestrator.base.retry.RetryConfig;
@@ -14,7 +14,7 @@ import java.time.Duration;
 
 /**
  * Test client for Kafka assertions. Combines consuming, deserializing, and asserting
- * messages into single {@link StepFunction}s, with retry wrapping for eventually-consistent
+ * messages into single {@link Step}s, with retry wrapping for eventually-consistent
  * scenarios.
  *
  * <p><strong>Call {@link #warmup()} before consuming any messages.</strong> The underlying
@@ -48,7 +48,7 @@ public class KafkaTestClient {
      * Reads the next available record and deserializes it to {@code type}. No assertion
      * is performed — use the overloads below if you also want to verify the content.
      */
-    public <I, T> StepFunction<I, T> consume(Class<T> type) {
+    public <I, T> Step<I, T> consume(Class<T> type) {
         return (input, outerCtx) -> Pipeline.given(input)
                 .withContext(outerCtx)
                 .then(Retry.of(kafkaSteps.consume(type), retryConfig))
@@ -56,7 +56,7 @@ public class KafkaTestClient {
     }
 
     /** Reads the next record, deserializes it, and asserts it matches {@code expected} (null fields ignored). */
-    public <I, T> StepFunction<I, T> consume(Class<T> type, T expected) {
+    public <I, T> Step<I, T> consume(Class<T> type, T expected) {
         return (input, outerCtx) -> Pipeline.given(input)
                 .withContext(outerCtx)
                 .then(Retry.of(
@@ -66,7 +66,7 @@ public class KafkaTestClient {
     }
 
     /** Same as {@link #consume(Class, Object)} but applies temporal tolerance to timestamp fields. */
-    public <I, T> StepFunction<I, T> consume(Class<T> type, T expected, Duration temporalTolerance) {
+    public <I, T> Step<I, T> consume(Class<T> type, T expected, Duration temporalTolerance) {
         return (input, outerCtx) -> Pipeline.given(input)
                 .withContext(outerCtx)
                 .then(Retry.of(
@@ -82,7 +82,7 @@ public class KafkaTestClient {
      * tolerates interleaved messages by keep polling and comparing until the retry budget
      * is exhausted.
      */
-    public <T> StepFunction<T, T> consumeMatching(Class<T> type) {
+    public <T> Step<T, T> consumeMatching(Class<T> type) {
         return (expected, outerCtx) -> {
             log.info(KafkaTestClientLogTemplates.CONSUME_MATCHING, type.getSimpleName());
             T result = Retry.of(
@@ -95,7 +95,7 @@ public class KafkaTestClient {
     }
 
     /** Same as {@link #consumeMatching(Class)} but applies temporal tolerance to timestamp fields. */
-    public <T> StepFunction<T, T> consumeMatching(Class<T> type, Duration temporalTolerance) {
+    public <T> Step<T, T> consumeMatching(Class<T> type, Duration temporalTolerance) {
         return (expected, outerCtx) -> {
             log.info(KafkaTestClientLogTemplates.CONSUME_MATCHING, type.getSimpleName());
             T result = Retry.of(
@@ -108,7 +108,7 @@ public class KafkaTestClient {
     }
 
     /** Produces a {@link KafkaMessage} to the default topic (the first topic in {@link KafkaConfig}). */
-    public <T> StepFunction<KafkaMessage<T>, KafkaMessage<T>> publish() {
+    public <T> Step<KafkaMessage<T>, KafkaMessage<T>> publish() {
         return kafkaSteps.produce();
     }
 
