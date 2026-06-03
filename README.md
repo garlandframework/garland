@@ -59,6 +59,22 @@ HttpTestClient authed = http.withBearer(token);
 http = http.withBearer(token);
 ```
 
+**`storeBearer`** stores a token in the pipeline context so it is injected automatically by every subsequent `makeCall` in the same pipeline. Use this when the token comes from a login step inside the pipeline itself:
+
+```java
+// token is fetched and used within the same pipeline
+Pipeline.given(loginRequest())
+        .then(http.makeCall(200, TokenDto.class))
+        .then(HttpTestClient.storeBearer(TokenDto::accessToken))
+        .then(tokenDto -> buildCreateUserRequest())
+        .then(http.makeCall(201, UserDto.class))  // Authorization: Bearer <token> injected automatically
+        .execute();
+```
+
+If the token is already known before the pipeline starts, use `withBearer` on the client instead — it is simpler and does not require context. `storeBearer` is for the case where auth and the actual test call are part of the same flow.
+
+The client-level `withBearer` always takes priority over a context token — explicit client configuration cannot be accidentally overridden mid-pipeline.
+
 **`pollingCall`** retries until the response body matches — use for read-model endpoints populated by async consumers:
 
 ```java
