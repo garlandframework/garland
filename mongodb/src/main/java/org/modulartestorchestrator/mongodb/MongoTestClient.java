@@ -1,6 +1,5 @@
 package org.modulartestorchestrator.mongodb;
 
-import org.modulartestorchestrator.base.Pipeline;
 import org.modulartestorchestrator.base.PipelineContext;
 import org.modulartestorchestrator.base.Step;
 import org.modulartestorchestrator.base.checks.CheckSteps;
@@ -15,7 +14,7 @@ import java.time.Duration;
 
 /**
  * Test client for MongoDB assertions. Mirrors the API of
- * {@link org.modulartestorchestrator.postgres.DbTestClient} but operates on MongoDB
+ * {@link org.modulartestorchestrator.postgres.PostgresTestClient} but operates on MongoDB
  * collections registered in {@link MongoConfig}.
  *
  * <p>Document classes must be registered via {@link MongoConfig.Builder#collection} before
@@ -24,37 +23,62 @@ import java.time.Duration;
  *
  * <p><strong>Timestamp precision:</strong> MongoDB stores {@code Instant} with millisecond
  * resolution. If documents contain nanosecond-precision timestamps (e.g. {@code Instant.now()}
- * from Java 9+), use the {@link #findById(Duration)} overload with
- * {@code Duration.ofMillis(1)} to absorb the truncation difference.
+ * from Java 9+), use {@link #withTemporalTolerance(Duration) withTemporalTolerance(Duration.ofMillis(1))}
+ * to absorb the truncation difference globally, or use the {@link #findById(Duration)} overload
+ * for a single call.
  */
 public class MongoTestClient {
 
     private static final Logger log = LoggerFactory.getLogger("MONGO");
 
+    private final MongoWrapper mongo;
     private final MongoSteps mongoSteps;
     private final MongoCheckSteps mongoCheck;
     private final CheckSteps check;
     private final RetryConfig retryConfig;
+    private final Duration defaultTemporalTolerance;
+
+    private MongoTestClient(MongoWrapper mongo, RetryConfig retryConfig, Duration defaultTemporalTolerance) {
+        this.mongo                   = mongo;
+        this.mongoSteps              = new MongoSteps(mongo);
+        this.mongoCheck              = new MongoCheckSteps();
+        this.check                   = new CheckSteps();
+        this.retryConfig             = retryConfig;
+        this.defaultTemporalTolerance = defaultTemporalTolerance;
+    }
 
     public MongoTestClient(MongoWrapper mongo, RetryConfig retryConfig) {
-        this.mongoSteps  = new MongoSteps(mongo);
-        this.mongoCheck  = new MongoCheckSteps();
-        this.check       = new CheckSteps();
-        this.retryConfig = retryConfig;
+        this(mongo, retryConfig, null);
     }
 
     public MongoTestClient(MongoWrapper mongo) {
-        this(mongo, RetryConfig.attempts(1));
+        this(mongo, RetryConfig.attempts(1), null);
+    }
+
+    /**
+     * Returns a new client that applies {@code tolerance} to every {@link #findById()} call
+     * by default. Individual calls can still override with {@link #findById(Duration)}.
+     *
+     * <p>Use {@code Duration.ofMillis(1)} to absorb MongoDB's millisecond truncation globally
+     * instead of annotating every assertion site:
+     * <pre>
+     * mongoClient = new MongoTestClient(mongo, retryConfig)
+     *         .withTemporalTolerance(Duration.ofMillis(1));
+     * </pre>
+     */
+    public MongoTestClient withTemporalTolerance(Duration tolerance) {
+        return new MongoTestClient(mongo, retryConfig, tolerance);
     }
 
     /**
      * Finds a document by its ID field and asserts it matches the input (null fields
      * ignored). Retries until found — use when the document is written asynchronously.
      *
-     * @see #findById(Duration) when the document contains timestamp fields
+     * <p>If a default tolerance was set via {@link #withTemporalTolerance(Duration)}, it is
+     * applied automatically. Use {@link #findById(Duration)} to override for a specific call.
      */
     public <T> Step<T, T> findById() {
-        return (input, outerCtx) -> {
+        return defaultTemporalTolerance != null ? findById(defaultTemporalTolerance) : (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
             T result = Retry.of(
                             Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::findById)
@@ -70,9 +94,9 @@ public class MongoTestClient {
     }
 
     /**
-     * Same as {@link #findById()} but applies temporal tolerance to timestamp fields.
-     * Use {@code Duration.ofMillis(1)} to absorb MongoDB's millisecond truncation when
-     * your documents are constructed with nanosecond-precision {@code Instant} values.
+     * Same as {@link #findById()} but overrides the tolerance for this specific call.
+     * Use when a particular assertion needs a higher tolerance than the client default
+     * (e.g. asserting a service-generated timestamp within an SLA window).
      */
     public <T> Step<T, T> findById(Duration temporalTolerance) {
         return (input, outerCtx) -> {

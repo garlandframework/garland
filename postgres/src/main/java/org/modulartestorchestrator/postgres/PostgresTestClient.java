@@ -20,34 +20,66 @@ import java.time.Duration;
  * <p>Entity classes must be registered with {@link PostgresConfig} before constructing this client.
  * Entities used with {@link #findById()} and {@link #existsById()} must have a field
  * annotated with {@code @Id}. Not thread-safe — designed for sequential test execution.
+ *
+ * <p><strong>Timestamp precision:</strong> PostgreSQL stores {@code Instant} with microsecond
+ * resolution. If entities contain nanosecond-precision timestamps (e.g. {@code Instant.now()}
+ * from Java 9+), use {@link #withTemporalTolerance(Duration) withTemporalTolerance(Duration.ofNanos(1000))}
+ * to absorb the truncation difference globally, or use the {@link #findById(Duration)} overload
+ * for a single call.
  */
 public class PostgresTestClient {
 
     private static final Logger log = LoggerFactory.getLogger("DB");
 
+    private final PostgresWrapper postgres;
     private final PostgresSteps dbSteps;
     private final PostgresCheckSteps dbCheck;
     private final CheckSteps check;
     private final RetryConfig retryConfig;
+    private final Duration defaultTemporalTolerance;
+
+    private PostgresTestClient(PostgresWrapper postgres, RetryConfig retryConfig, Duration defaultTemporalTolerance) {
+        this.postgres                = postgres;
+        this.dbSteps                 = new PostgresSteps(postgres);
+        this.dbCheck                 = new PostgresCheckSteps();
+        this.check                   = new CheckSteps();
+        this.retryConfig             = retryConfig;
+        this.defaultTemporalTolerance = defaultTemporalTolerance;
+    }
 
     public PostgresTestClient(PostgresWrapper postgres, RetryConfig retryConfig) {
-        this.dbSteps     = new PostgresSteps(postgres);
-        this.dbCheck     = new PostgresCheckSteps();
-        this.check       = new CheckSteps();
-        this.retryConfig = retryConfig;
+        this(postgres, retryConfig, null);
     }
 
     public PostgresTestClient(PostgresWrapper postgres) {
-        this(postgres, RetryConfig.attempts(1));
+        this(postgres, RetryConfig.attempts(1), null);
+    }
+
+    /**
+     * Returns a new client that applies {@code tolerance} to every {@link #findById()} call
+     * by default. Individual calls can still override with {@link #findById(Duration)}.
+     *
+     * <p>Use {@code Duration.ofNanos(1000)} (1 µs) to absorb PostgreSQL's microsecond truncation
+     * globally instead of annotating every assertion site:
+     * <pre>
+     * dbClient = new PostgresTestClient(postgres, retryConfig)
+     *         .withTemporalTolerance(Duration.ofNanos(1000));
+     * </pre>
+     */
+    public PostgresTestClient withTemporalTolerance(Duration tolerance) {
+        return new PostgresTestClient(postgres, retryConfig, tolerance);
     }
 
     /**
      * Finds the entity by its {@code @Id} field value and asserts it matches the input
      * (null fields ignored). Retries if the entity is not yet present — useful after an
      * async write where the row may not be immediately visible.
+     *
+     * <p>If a default tolerance was set via {@link #withTemporalTolerance(Duration)}, it is
+     * applied automatically. Use {@link #findById(Duration)} to override for a specific call.
      */
     public <T> Step<T, T> findById() {
-        return (input, outerCtx) -> {
+        return defaultTemporalTolerance != null ? findById(defaultTemporalTolerance) : (input, outerCtx) -> {
             log.info(PostgresTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
             T result = Retry.of(
                             Step.<PostgresRequest<T>, PostgresResult<T>>of(dbSteps::findById)
@@ -63,9 +95,9 @@ public class PostgresTestClient {
     }
 
     /**
-     * Same as {@link #findById()} but applies temporal tolerance to timestamp fields.
-     * Use when entity timestamps are truncated by the database driver or when comparing
-     * server-generated timestamps to locally-constructed expected values.
+     * Same as {@link #findById()} but overrides the tolerance for this specific call.
+     * Use when a particular assertion needs a higher tolerance than the client default
+     * (e.g. asserting a service-generated timestamp within an SLA window).
      */
     public <T> Step<T, T> findById(Duration temporalTolerance) {
         return (input, outerCtx) -> {
