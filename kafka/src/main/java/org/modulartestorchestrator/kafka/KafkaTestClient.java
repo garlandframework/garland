@@ -49,24 +49,39 @@ public class KafkaTestClient {
      * is performed — use the overloads below if you also want to verify the content.
      */
     public <I, T> Step<I, T> consume(Class<T> type) {
-        return (input, outerCtx) -> Retry.of(kafkaSteps.consume(type), retryConfig)
-                .apply(input, outerCtx);
+        return (input, outerCtx) -> {
+            log.info(KafkaTestClientLogTemplates.CONSUME, type.getSimpleName());
+            T result = Retry.of(kafkaSteps.consume(type), retryConfig)
+                    .apply(input, outerCtx);
+            log.info(KafkaTestClientLogTemplates.VERIFIED);
+            return result;
+        };
     }
 
     /** Reads the next record, deserializes it, and asserts it matches {@code expected} (null fields ignored). */
     public <I, T> Step<I, T> consume(Class<T> type, T expected) {
-        return (input, outerCtx) -> Retry.of(
-                kafkaSteps.<I, T>consume(type).andThen(check.matchingNonNull(expected)),
-                retryConfig
-        ).apply(input, outerCtx);
+        return (input, outerCtx) -> {
+            log.info(KafkaTestClientLogTemplates.CONSUME, type.getSimpleName());
+            T result = Retry.of(
+                    kafkaSteps.<I, T>consume(type).andThen(check.matchingNonNull(expected)),
+                    retryConfig
+            ).apply(input, outerCtx);
+            log.info(KafkaTestClientLogTemplates.VERIFIED);
+            return result;
+        };
     }
 
     /** Same as {@link #consume(Class, Object)} but applies temporal tolerance to timestamp fields. */
     public <I, T> Step<I, T> consume(Class<T> type, T expected, Duration temporalTolerance) {
-        return (input, outerCtx) -> Retry.of(
-                kafkaSteps.<I, T>consume(type).andThen(check.matchingNonNull(expected, temporalTolerance)),
-                retryConfig
-        ).apply(input, outerCtx);
+        return (input, outerCtx) -> {
+            log.info(KafkaTestClientLogTemplates.CONSUME, type.getSimpleName());
+            T result = Retry.of(
+                    kafkaSteps.<I, T>consume(type).andThen(check.matchingNonNull(expected, temporalTolerance)),
+                    retryConfig
+            ).apply(input, outerCtx);
+            log.info(KafkaTestClientLogTemplates.VERIFIED);
+            return result;
+        };
     }
 
     /**
