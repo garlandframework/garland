@@ -12,8 +12,14 @@ public final class KafkaTestClientLogTemplates {
     public static final String CONSUME_MATCHING =
             KAFKA + "▶ consumeMatching: " + RESET + DATA + "{}" + RESET;
 
+    public static final String PUBLISH =
+            KAFKA + "▶ publish: " + RESET + DATA + "{}" + RESET;
+
     public static final String VERIFIED =
             KAFKA + "✓ content verified" + RESET;
+
+    public static final String PUBLISHED =
+            KAFKA + "✓ message published" + RESET;
 
     private KafkaTestClientLogTemplates() {}
 }

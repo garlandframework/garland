@@ -118,7 +118,12 @@ public class KafkaTestClient {
 
     /** Produces a {@link KafkaMessage} to the default topic (the first topic in {@link KafkaConfig}). */
     public <T> Step<KafkaMessage<T>, KafkaMessage<T>> publish() {
-        return kafkaSteps.produce();
+        return (message, outerCtx) -> {
+            log.info(KafkaTestClientLogTemplates.PUBLISH, message.value().getClass().getSimpleName());
+            KafkaMessage<T> result = kafkaSteps.<T>produce().apply(message, outerCtx);
+            log.info(KafkaTestClientLogTemplates.PUBLISHED);
+            return result;
+        };
     }
 
     /**

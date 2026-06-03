@@ -1,13 +1,13 @@
 package org.modulartestorchestrator.postgres;
 
 import jakarta.persistence.Id;
-import org.modulartestorchestrator.postgres.model.DbRequest;
+import org.modulartestorchestrator.postgres.model.PostgresRequest;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class DbRequestIdExtractionTest {
+public class PostgresRequestIdExtractionTest {
 
     static class DirectId {
         @Id long id = 42L;
@@ -32,25 +32,25 @@ public class DbRequestIdExtractionTest {
 
     @Test
     public void extracts_id_from_annotated_field() {
-        DbRequest<DirectId> request = DbRequest.findById(new DirectId());
+        PostgresRequest<DirectId> request = PostgresRequest.findById(new DirectId());
         assertThat(request.id()).isEqualTo(42L);
     }
 
     @Test
     public void extracts_id_from_inherited_superclass_field() {
-        DbRequest<ChildEntity> request = DbRequest.findById(new ChildEntity());
+        PostgresRequest<ChildEntity> request = PostgresRequest.findById(new ChildEntity());
         assertThat(request.id()).isEqualTo(99L);
     }
 
     @Test
     public void extracts_id_through_multiple_inheritance_levels() {
-        DbRequest<GrandChildEntity> request = DbRequest.findById(new GrandChildEntity());
+        PostgresRequest<GrandChildEntity> request = PostgresRequest.findById(new GrandChildEntity());
         assertThat(request.id()).isEqualTo(99L);
     }
 
     @Test
     public void throws_when_no_id_field_found() {
-        assertThatThrownBy(() -> DbRequest.findById(new NamedId()))
+        assertThatThrownBy(() -> PostgresRequest.findById(new NamedId()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("@Id");
     }

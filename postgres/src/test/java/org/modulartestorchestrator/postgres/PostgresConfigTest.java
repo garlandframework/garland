@@ -5,11 +5,11 @@ import org.testng.annotations.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class DbConfigTest {
+public class PostgresConfigTest {
 
     @Test
     public void builds_successfully_with_all_required_fields() {
-        DbConfig config = DbConfig.builder()
+        PostgresConfig config = PostgresConfig.builder()
                 .url("jdbc:postgresql://localhost/db")
                 .username("user")
                 .password("pass")
@@ -23,7 +23,7 @@ public class DbConfigTest {
 
     @Test
     public void throws_when_url_is_missing() {
-        assertThatThrownBy(() -> DbConfig.builder()
+        assertThatThrownBy(() -> PostgresConfig.builder()
                 .username("user")
                 .entity(Object.class)
                 .build())
@@ -33,7 +33,7 @@ public class DbConfigTest {
 
     @Test
     public void throws_when_url_is_blank() {
-        assertThatThrownBy(() -> DbConfig.builder()
+        assertThatThrownBy(() -> PostgresConfig.builder()
                 .url("   ")
                 .username("user")
                 .entity(Object.class)
@@ -44,7 +44,7 @@ public class DbConfigTest {
 
     @Test
     public void throws_when_username_is_missing() {
-        assertThatThrownBy(() -> DbConfig.builder()
+        assertThatThrownBy(() -> PostgresConfig.builder()
                 .url("jdbc:postgresql://localhost/db")
                 .entity(Object.class)
                 .build())
@@ -54,7 +54,7 @@ public class DbConfigTest {
 
     @Test
     public void throws_when_entities_are_empty() {
-        assertThatThrownBy(() -> DbConfig.builder()
+        assertThatThrownBy(() -> PostgresConfig.builder()
                 .url("jdbc:postgresql://localhost/db")
                 .username("user")
                 .build())
@@ -64,7 +64,7 @@ public class DbConfigTest {
 
     @Test
     public void password_is_optional() {
-        DbConfig config = DbConfig.builder()
+        PostgresConfig config = PostgresConfig.builder()
                 .url("jdbc:postgresql://localhost/db")
                 .username("user")
                 .entity(Object.class)

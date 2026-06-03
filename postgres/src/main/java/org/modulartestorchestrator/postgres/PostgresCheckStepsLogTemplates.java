@@ -1,6 +1,6 @@
 package org.modulartestorchestrator.postgres;
 
-public final class DbCheckStepsLogTemplates {
+public final class PostgresCheckStepsLogTemplates {
 
     private static final String CHECK = "\033[38;5;141m";
     private static final String RESET = "\033[0m";
@@ -17,5 +17,5 @@ public final class DbCheckStepsLogTemplates {
     public static final String NOT_EXISTS_PASSED =
             CHECK + "Entity not-exists check passed" + RESET;
 
-    private DbCheckStepsLogTemplates() {}
+    private PostgresCheckStepsLogTemplates() {}
 }

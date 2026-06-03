@@ -13,7 +13,7 @@ import java.lang.reflect.Field;
  * extract the {@code @Id} field automatically and set the correct combination of fields
  * for each operation type.
  */
-public record DbRequest<T>(
+public record PostgresRequest<T>(
         Class<T> entityClass,
         Object id,
         T entity
@@ -24,8 +24,8 @@ public record DbRequest<T>(
      * is found.
      */
     @SuppressWarnings("unchecked")
-    public static <T> DbRequest<T> findById(T entity) {
-        return new DbRequest<>((Class<T>) entity.getClass(), extractId(entity), entity);
+    public static <T> PostgresRequest<T> findById(T entity) {
+        return new PostgresRequest<>((Class<T>) entity.getClass(), extractId(entity), entity);
     }
 
     private static Object extractId(Object entity) {
@@ -46,32 +46,32 @@ public record DbRequest<T>(
         throw new IllegalArgumentException("No @Id field found on " + entity.getClass().getSimpleName());
     }
 
-    public static <T> DbRequest<T> exists(Class<T> entityClass, Object id) {
-        return new DbRequest<>(entityClass, id, null);
+    public static <T> PostgresRequest<T> exists(Class<T> entityClass, Object id) {
+        return new PostgresRequest<>(entityClass, id, null);
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> DbRequest<T> exists(T entity) {
-        return new DbRequest<>((Class<T>) entity.getClass(), extractId(entity), null);
+    public static <T> PostgresRequest<T> exists(T entity) {
+        return new PostgresRequest<>((Class<T>) entity.getClass(), extractId(entity), null);
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> DbRequest<T> persist(T entity) {
-        return new DbRequest<>((Class<T>) entity.getClass(), null, entity);
+    public static <T> PostgresRequest<T> persist(T entity) {
+        return new PostgresRequest<>((Class<T>) entity.getClass(), null, entity);
     }
 
-    public static <T> DbRequest<T> delete(Class<T> entityClass, Object id) {
-        return new DbRequest<>(entityClass, id, null);
+    public static <T> PostgresRequest<T> delete(Class<T> entityClass, Object id) {
+        return new PostgresRequest<>(entityClass, id, null);
     }
 
     /** Builds a query-by-example request. All non-null fields of {@code example} become filter predicates. */
     @SuppressWarnings("unchecked")
-    public static <T> DbRequest<T> findByFields(T example) {
-        return new DbRequest<>((Class<T>) example.getClass(), null, example);
+    public static <T> PostgresRequest<T> findByFields(T example) {
+        return new PostgresRequest<>((Class<T>) example.getClass(), null, example);
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> DbRequest<T> countByFields(T example) {
-        return new DbRequest<>((Class<T>) example.getClass(), null, example);
+    public static <T> PostgresRequest<T> countByFields(T example) {
+        return new PostgresRequest<>((Class<T>) example.getClass(), null, example);
     }
 }

@@ -1,7 +1,5 @@
 package org.modulartestorchestrator.mongodb;
 
-import com.mongodb.client.MongoClient;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -12,21 +10,7 @@ import java.util.Map;
  * {@link Builder#collection} — an unmapped class causes an {@link IllegalArgumentException}
  * at query time, not at construction time.
  */
-public class MongoConfig {
-
-    private final String connectionString;
-    private final String database;
-    private final Map<Class<?>, String> collections;
-
-    private MongoConfig(Builder builder) {
-        this.connectionString = builder.connectionString;
-        this.database         = builder.database;
-        this.collections      = Collections.unmodifiableMap(new HashMap<>(builder.collections));
-    }
-
-    public String connectionString()         { return connectionString; }
-    public String database()                 { return database; }
-    public Map<Class<?>, String> collections() { return collections; }
+public record MongoConfig(String connectionString, String database, Map<Class<?>, String> collections) {
 
     public static Builder builder() { return new Builder(); }
 
@@ -58,7 +42,7 @@ public class MongoConfig {
                 throw new IllegalStateException("MongoConfig: database is required");
             if (collections.isEmpty())
                 throw new IllegalStateException("MongoConfig: at least one collection mapping is required");
-            return new MongoConfig(this);
+            return new MongoConfig(connectionString, database, Collections.unmodifiableMap(new HashMap<>(collections)));
         }
     }
 }

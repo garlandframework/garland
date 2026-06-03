@@ -1,7 +1,7 @@
 package org.modulartestorchestrator.postgres;
 
 import org.modulartestorchestrator.base.Step;
-import org.modulartestorchestrator.postgres.model.DbResult;
+import org.modulartestorchestrator.postgres.model.PostgresResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,30 +9,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Assertion steps for database query results: entityExists and entityNotExists checks
- * on {@link DbResult}. Used internally by {@link DbTestClient}.
+ * on {@link PostgresResult}. Used internally by {@link PostgresTestClient}.
  */
-public class DbCheckSteps {
+public class PostgresCheckSteps {
 
-    private static final Logger log = LoggerFactory.getLogger(DbCheckSteps.class);
+    private static final Logger log = LoggerFactory.getLogger(PostgresCheckSteps.class);
 
-    public <T> Step<DbResult<T>, DbResult<T>> entityExists() {
+    public <T> Step<PostgresResult<T>, PostgresResult<T>> entityExists() {
         return (result, ctx) -> {
-            log.info(DbCheckStepsLogTemplates.CHECKING_EXISTS);
+            log.info(PostgresCheckStepsLogTemplates.CHECKING_EXISTS);
             assertThat(result.exists())
                     .as("Entity should exist in database")
                     .isTrue();
-            log.info(DbCheckStepsLogTemplates.EXISTS_PASSED);
+            log.info(PostgresCheckStepsLogTemplates.EXISTS_PASSED);
             return result;
         };
     }
 
-    public <T> Step<DbResult<T>, DbResult<T>> entityNotExists() {
+    public <T> Step<PostgresResult<T>, PostgresResult<T>> entityNotExists() {
         return (result, ctx) -> {
-            log.info(DbCheckStepsLogTemplates.CHECKING_NOT_EXISTS);
+            log.info(PostgresCheckStepsLogTemplates.CHECKING_NOT_EXISTS);
             assertThat(result.exists())
                     .as("Entity should not exist in database")
                     .isFalse();
-            log.info(DbCheckStepsLogTemplates.NOT_EXISTS_PASSED);
+            log.info(PostgresCheckStepsLogTemplates.NOT_EXISTS_PASSED);
             return result;
         };
     }

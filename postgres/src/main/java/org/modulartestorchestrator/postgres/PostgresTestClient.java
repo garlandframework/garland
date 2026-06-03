@@ -1,13 +1,12 @@
 package org.modulartestorchestrator.postgres;
 
-import org.modulartestorchestrator.base.Pipeline;
 import org.modulartestorchestrator.base.PipelineContext;
 import org.modulartestorchestrator.base.Step;
 import org.modulartestorchestrator.base.checks.CheckSteps;
 import org.modulartestorchestrator.base.retry.Retry;
 import org.modulartestorchestrator.base.retry.RetryConfig;
-import org.modulartestorchestrator.postgres.model.DbRequest;
-import org.modulartestorchestrator.postgres.model.DbResult;
+import org.modulartestorchestrator.postgres.model.PostgresRequest;
+import org.modulartestorchestrator.postgres.model.PostgresResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,28 +17,28 @@ import java.time.Duration;
  * {@link Step} that queries the database and asserts the result, retrying
  * according to the configured {@link RetryConfig}.
  *
- * <p>Entity classes must be registered with {@link DbConfig} before constructing this client.
+ * <p>Entity classes must be registered with {@link PostgresConfig} before constructing this client.
  * Entities used with {@link #findById()} and {@link #existsById()} must have a field
  * annotated with {@code @Id}. Not thread-safe — designed for sequential test execution.
  */
-public class DbTestClient {
+public class PostgresTestClient {
 
     private static final Logger log = LoggerFactory.getLogger("DB");
 
-    private final DbSteps dbSteps;
-    private final DbCheckSteps dbCheck;
+    private final PostgresSteps dbSteps;
+    private final PostgresCheckSteps dbCheck;
     private final CheckSteps check;
     private final RetryConfig retryConfig;
 
-    public DbTestClient(HibernateWrapper hibernate, RetryConfig retryConfig) {
-        this.dbSteps     = new DbSteps(hibernate);
-        this.dbCheck     = new DbCheckSteps();
+    public PostgresTestClient(PostgresWrapper postgres, RetryConfig retryConfig) {
+        this.dbSteps     = new PostgresSteps(postgres);
+        this.dbCheck     = new PostgresCheckSteps();
         this.check       = new CheckSteps();
         this.retryConfig = retryConfig;
     }
 
-    public DbTestClient(HibernateWrapper hibernate) {
-        this(hibernate, RetryConfig.attempts(1));
+    public PostgresTestClient(PostgresWrapper postgres) {
+        this(postgres, RetryConfig.attempts(1));
     }
 
     /**
@@ -49,16 +48,16 @@ public class DbTestClient {
      */
     public <T> Step<T, T> findById() {
         return (input, outerCtx) -> {
-            log.info(DbTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
+            log.info(PostgresTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
             T result = Retry.of(
-                            Step.<DbRequest<T>, DbResult<T>>of(dbSteps::findById)
+                            Step.<PostgresRequest<T>, PostgresResult<T>>of(dbSteps::findById)
                                     .andThen(dbCheck.entityExists()),
                             retryConfig
                     )
-                    .andThen((DbResult<T> r, PipelineContext ctx) -> r.entity())
+                    .andThen((PostgresResult<T> r, PipelineContext ctx) -> r.entity())
                     .andThen(check.matchingNonNull(input))
-                    .apply(DbRequest.findById(input), outerCtx);
-            log.info(DbTestClientLogTemplates.VERIFIED);
+                    .apply(PostgresRequest.findById(input), outerCtx);
+            log.info(PostgresTestClientLogTemplates.VERIFIED);
             return result;
         };
     }
@@ -70,16 +69,16 @@ public class DbTestClient {
      */
     public <T> Step<T, T> findById(Duration temporalTolerance) {
         return (input, outerCtx) -> {
-            log.info(DbTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
+            log.info(PostgresTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
             T result = Retry.of(
-                            Step.<DbRequest<T>, DbResult<T>>of(dbSteps::findById)
+                            Step.<PostgresRequest<T>, PostgresResult<T>>of(dbSteps::findById)
                                     .andThen(dbCheck.entityExists()),
                             retryConfig
                     )
-                    .andThen((DbResult<T> r, PipelineContext ctx) -> r.entity())
+                    .andThen((PostgresResult<T> r, PipelineContext ctx) -> r.entity())
                     .andThen(check.matchingNonNull(input, temporalTolerance))
-                    .apply(DbRequest.findById(input), outerCtx);
-            log.info(DbTestClientLogTemplates.VERIFIED);
+                    .apply(PostgresRequest.findById(input), outerCtx);
+            log.info(PostgresTestClientLogTemplates.VERIFIED);
             return result;
         };
     }
@@ -95,31 +94,31 @@ public class DbTestClient {
      */
     public <T> Step<T, T> findByFields() {
         return (input, outerCtx) -> {
-            log.info(DbTestClientLogTemplates.FIND_BY_FIELDS, input.getClass().getSimpleName());
+            log.info(PostgresTestClientLogTemplates.FIND_BY_FIELDS, input.getClass().getSimpleName());
             T result = Retry.of(
-                            Step.<DbRequest<T>, DbResult<T>>of(dbSteps::findByFields)
+                            Step.<PostgresRequest<T>, PostgresResult<T>>of(dbSteps::findByFields)
                                     .andThen(dbCheck.entityExists()),
                             retryConfig
                     )
-                    .andThen((DbResult<T> r, PipelineContext ctx) -> r.entity())
+                    .andThen((PostgresResult<T> r, PipelineContext ctx) -> r.entity())
                     .andThen(check.matchingNonNull(input))
-                    .apply(DbRequest.findByFields(input), outerCtx);
-            log.info(DbTestClientLogTemplates.VERIFIED);
+                    .apply(PostgresRequest.findByFields(input), outerCtx);
+            log.info(PostgresTestClientLogTemplates.VERIFIED);
             return result;
         };
     }
 
     /**
      * Returns the count of rows matching all non-null fields of the input. No assertion
-     * is performed here — chain {@link Verify} steps to assert the count in a subsequent
-     * {@link Pipeline#then} call.
+     * is performed here — chain {@code Verify} steps to assert the count in a subsequent
+     * pipeline step.
      */
     public <T> Step<T, Long> countByFields() {
         return (input, outerCtx) -> {
-            log.info(DbTestClientLogTemplates.COUNT_BY_FIELDS, input.getClass().getSimpleName());
-            Long count = Step.<DbRequest<T>, Long>of(dbSteps::countByFields)
-                    .apply(DbRequest.countByFields(input), outerCtx);
-            log.info(DbTestClientLogTemplates.VERIFIED);
+            log.info(PostgresTestClientLogTemplates.COUNT_BY_FIELDS, input.getClass().getSimpleName());
+            Long count = Step.<PostgresRequest<T>, Long>of(dbSteps::countByFields)
+                    .apply(PostgresRequest.countByFields(input), outerCtx);
+            log.info(PostgresTestClientLogTemplates.VERIFIED);
             return count;
         };
     }
@@ -129,15 +128,15 @@ public class DbTestClient {
      * {@code expectedEntity}. Use for test setup when you need a specific record in the
      * database before the system-under-test runs.
      */
-    public <T> Step<DbRequest<T>, T> persist(T expectedEntity) {
+    public <T> Step<PostgresRequest<T>, T> persist(T expectedEntity) {
         return (request, outerCtx) -> {
-            log.info(DbTestClientLogTemplates.PERSIST, expectedEntity.getClass().getSimpleName());
-            T result = Step.<DbRequest<T>, DbResult<T>>of(dbSteps::persist)
+            log.info(PostgresTestClientLogTemplates.PERSIST, expectedEntity.getClass().getSimpleName());
+            T result = Step.<PostgresRequest<T>, PostgresResult<T>>of(dbSteps::persist)
                     .andThen(dbCheck.entityExists())
-                    .andThen((DbResult<T> r, PipelineContext ctx) -> r.entity())
+                    .andThen((PostgresResult<T> r, PipelineContext ctx) -> r.entity())
                     .andThen(check.matchingNonNull(expectedEntity))
                     .apply(request, outerCtx);
-            log.info(DbTestClientLogTemplates.VERIFIED);
+            log.info(PostgresTestClientLogTemplates.VERIFIED);
             return result;
         };
     }
@@ -151,13 +150,13 @@ public class DbTestClient {
      */
     public <T> Step<T, T> existsById() {
         return (input, outerCtx) -> {
-            log.info(DbTestClientLogTemplates.EXISTS, input.getClass().getSimpleName());
+            log.info(PostgresTestClientLogTemplates.EXISTS, input.getClass().getSimpleName());
             Retry.of(
-                    Step.<DbRequest<T>, DbResult<T>>of(dbSteps::exists)
+                    Step.<PostgresRequest<T>, PostgresResult<T>>of(dbSteps::exists)
                             .andThen(dbCheck.entityExists()),
                     retryConfig
-            ).apply(DbRequest.exists(input), outerCtx);
-            log.info(DbTestClientLogTemplates.VERIFIED);
+            ).apply(PostgresRequest.exists(input), outerCtx);
+            log.info(PostgresTestClientLogTemplates.VERIFIED);
             return input;
         };
     }
@@ -169,36 +168,36 @@ public class DbTestClient {
      */
     public <T> Step<T, T> notExistsById() {
         return (input, outerCtx) -> {
-            log.info(DbTestClientLogTemplates.NOT_EXISTS, input.getClass().getSimpleName());
-            Step.<DbRequest<T>, DbResult<T>>of(dbSteps::exists)
+            log.info(PostgresTestClientLogTemplates.NOT_EXISTS, input.getClass().getSimpleName());
+            Step.<PostgresRequest<T>, PostgresResult<T>>of(dbSteps::exists)
                     .andThen(dbCheck.entityNotExists())
-                    .apply(DbRequest.exists(input), outerCtx);
-            log.info(DbTestClientLogTemplates.ABSENT);
+                    .apply(PostgresRequest.exists(input), outerCtx);
+            log.info(PostgresTestClientLogTemplates.ABSENT);
             return input;
         };
     }
 
     /**
      * Lower-level variant of {@link #existsById()} that accepts a pre-built
-     * {@link DbRequest} and returns the raw {@link DbResult}. Use when downstream steps
-     * need both the entity and the exists flag, or when you need finer control over the
+     * {@link PostgresRequest} and returns the raw {@link PostgresResult}. Use when downstream
+     * steps need both the entity and the exists flag, or when you need finer control over the
      * request parameters.
      */
-    public <T> Step<DbRequest<T>, DbResult<T>> exists() {
+    public <T> Step<PostgresRequest<T>, PostgresResult<T>> exists() {
         return (request, outerCtx) -> {
-            log.info(DbTestClientLogTemplates.EXISTS, request.entityClass().getSimpleName());
-            return Step.<DbRequest<T>, DbResult<T>>of(dbSteps::exists)
+            log.info(PostgresTestClientLogTemplates.EXISTS, request.entityClass().getSimpleName());
+            return Step.<PostgresRequest<T>, PostgresResult<T>>of(dbSteps::exists)
                     .andThen(dbCheck.entityExists())
                     .apply(request, outerCtx);
         };
     }
 
-    public <T> Step<DbRequest<T>, Void> delete() {
+    public <T> Step<PostgresRequest<T>, Void> delete() {
         return (request, outerCtx) -> {
-            log.info(DbTestClientLogTemplates.DELETE, request.entityClass().getSimpleName());
-            return Step.<DbRequest<T>, DbResult<T>>of(dbSteps::delete)
+            log.info(PostgresTestClientLogTemplates.DELETE, request.entityClass().getSimpleName());
+            return Step.<PostgresRequest<T>, PostgresResult<T>>of(dbSteps::delete)
                     .andThen(dbCheck.entityNotExists())
-                    .andThen((DbResult<T> r, PipelineContext ctx) -> (Void) null)
+                    .andThen((PostgresResult<T> r, PipelineContext ctx) -> (Void) null)
                     .apply(request, outerCtx);
         };
     }

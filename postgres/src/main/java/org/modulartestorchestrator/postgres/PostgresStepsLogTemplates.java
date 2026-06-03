@@ -1,6 +1,6 @@
 package org.modulartestorchestrator.postgres;
 
-public final class DbStepsLogTemplates {
+public final class PostgresStepsLogTemplates {
 
     // medium purple — static labels
     private static final String DB    = "\033[38;5;141m";
@@ -53,5 +53,5 @@ public final class DbStepsLogTemplates {
             DB + "Entity deleted: type=" + RESET + DATA + "{}" + RESET +
             DB + ", id=" + RESET + DATA + "{}" + RESET;
 
-    private DbStepsLogTemplates() {}
+    private PostgresStepsLogTemplates() {}
 }

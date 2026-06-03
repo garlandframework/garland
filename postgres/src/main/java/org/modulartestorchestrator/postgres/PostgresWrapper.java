@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Thin Hibernate session factory wrapper used by {@link DbTestClient}. Opens a new
+ * Thin Hibernate session factory wrapper used by {@link PostgresTestClient}. Opens a new
  * session per operation — no persistent connection pool beyond Hibernate's built-in
  * single-connection default.
  *
@@ -26,11 +26,11 @@ import java.util.Optional;
  * <p>Call {@link #close()} at suite teardown to release the session factory. Implement
  * with {@code @AfterSuite} or {@code try-with-resources}.
  */
-public class HibernateWrapper implements AutoCloseable {
+public class PostgresWrapper implements AutoCloseable {
 
     private final SessionFactory sessionFactory;
 
-    public HibernateWrapper(DbConfig config) {
+    public PostgresWrapper(PostgresConfig config) {
         StandardServiceRegistry registry = new StandardServiceRegistryBuilder()
                 .applySetting("hibernate.connection.url",      config.url())
                 .applySetting("hibernate.connection.username", config.username())

@@ -1,6 +1,6 @@
 package org.modulartestorchestrator.postgres;
 
-public final class DbTestClientLogTemplates {
+public final class PostgresTestClientLogTemplates {
 
     private static final String DB    = "\033[38;5;141m";
     private static final String DATA  = "\033[38;5;183m";
@@ -33,5 +33,5 @@ public final class DbTestClientLogTemplates {
     public static final String ABSENT =
             DB + "✓ entity absent" + RESET;
 
-    private DbTestClientLogTemplates() {}
+    private PostgresTestClientLogTemplates() {}
 }
