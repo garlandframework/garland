@@ -319,3 +319,26 @@ The login endpoint is excluded from token validation — using `httpClient` (whi
 **Do not use `Step.lift(INSTANCE::overloadedMethod)`.** If the mapper method has multiple overloads, type inference fails. Use the pre-defined static bridge on the mapper interface instead.
 
 **Do not use `PLACEHOLDER_USER_ID` in happy-path tests that persist to the database.** The placeholder is only valid for validation (400) tests where the service rejects the request before hitting the DB. Happy-path tests must create the referenced entity in a setup pipeline first.
+
+---
+
+## 11. Test resource cleanup — API-only, never direct DB
+
+Resources created by tests must be cleaned up through the application's own API — never by truncating or deleting records directly in the database.
+
+**Why direct DB truncation is dangerous:** Other systems (Kafka, MongoDB projections, caches) are not notified of deletions made outside the application. Inconsistent state accumulates and causes spurious test failures that are not caused by bugs in the code under test.
+
+**The pattern:** `BaseTest` provides step helpers that track created resource IDs. `@AfterMethod(alwaysRun = true)` calls the delete/cancel endpoint for each tracked resource after every test method, including on failure:
+
+```java
+UserDto user = Pipeline.given(TestUserRequests.createUser())
+        .then(httpClient.makeCall(201, UserDto.class))
+        .then(trackUser())   // registers UUID; @AfterMethod deletes via API
+        .execute();
+```
+
+Cleanup failures are caught as `Throwable` (not `Exception`) and logged as warnings — an `AssertionError` from a 404 (resource already deleted by the test itself) must not prevent remaining cleanup from running.
+
+**Hybrid strategy:** Some resources have no DELETE endpoint (e.g. orders can only be cancelled). Use a separate tracker (e.g. `trackOrder()`) that sends the appropriate cancellation request. The principle is the same: all cleanup goes through the API.
+
+**Always track, even if the test deletes the resource itself.** If the test fails before its own cleanup step, the resource would be stranded without the tracker.
