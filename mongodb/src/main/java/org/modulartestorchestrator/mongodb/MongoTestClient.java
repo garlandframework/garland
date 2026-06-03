@@ -156,7 +156,7 @@ public class MongoTestClient {
                     Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::exists)
                             .andThen(mongoCheck.documentExists()),
                     retryConfig
-            ).apply(MongoRequest.findById(input), outerCtx);
+            ).apply(MongoRequest.exists(input), outerCtx);
             log.info(MongoTestClientLogTemplates.VERIFIED);
             return input;
         };
@@ -171,7 +171,7 @@ public class MongoTestClient {
             log.info(MongoTestClientLogTemplates.NOT_EXISTS, input.getClass().getSimpleName());
             Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::exists)
                     .andThen(mongoCheck.documentNotExists())
-                    .apply(MongoRequest.findById(input), outerCtx);
+                    .apply(MongoRequest.exists(input), outerCtx);
             log.info(MongoTestClientLogTemplates.ABSENT);
             return input;
         };

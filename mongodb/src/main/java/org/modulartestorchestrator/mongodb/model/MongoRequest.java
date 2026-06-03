@@ -30,6 +30,15 @@ public record MongoRequest<T>(Class<T> documentClass, Object id, T document) {
     }
 
     @SuppressWarnings("unchecked")
+    public static <T> MongoRequest<T> exists(T document) {
+        return new MongoRequest<>((Class<T>) document.getClass(), MongoIdExtractor.extractId(document), null);
+    }
+
+    public static <T> MongoRequest<T> exists(Class<T> documentClass, Object id) {
+        return new MongoRequest<>(documentClass, id, null);
+    }
+
+    @SuppressWarnings("unchecked")
     public static <T> MongoRequest<T> persist(T document) {
         return new MongoRequest<>((Class<T>) document.getClass(), null, document);
     }
