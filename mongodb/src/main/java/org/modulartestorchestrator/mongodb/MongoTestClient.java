@@ -56,16 +56,14 @@ public class MongoTestClient {
     public <T> Step<T, T> findById() {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
-            T result = Pipeline.given(MongoRequest.findById(input))
-                    .withContext(outerCtx)
-                    .then(Retry.of(
+            T result = Retry.of(
                             Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::findById)
                                     .andThen(mongoCheck.documentExists()),
                             retryConfig
-                    ))
-                    .then((MongoResult<T> r, PipelineContext ctx) -> r.document())
-                    .then(check.matchingNonNull(input))
-                    .execute();
+                    )
+                    .andThen((MongoResult<T> r, PipelineContext ctx) -> r.document())
+                    .andThen(check.matchingNonNull(input))
+                    .apply(MongoRequest.findById(input), outerCtx);
             log.info(MongoTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -79,16 +77,14 @@ public class MongoTestClient {
     public <T> Step<T, T> findById(Duration temporalTolerance) {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
-            T result = Pipeline.given(MongoRequest.findById(input))
-                    .withContext(outerCtx)
-                    .then(Retry.of(
+            T result = Retry.of(
                             Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::findById)
                                     .andThen(mongoCheck.documentExists()),
                             retryConfig
-                    ))
-                    .then((MongoResult<T> r, PipelineContext ctx) -> r.document())
-                    .then(check.matchingNonNull(input, temporalTolerance))
-                    .execute();
+                    )
+                    .andThen((MongoResult<T> r, PipelineContext ctx) -> r.document())
+                    .andThen(check.matchingNonNull(input, temporalTolerance))
+                    .apply(MongoRequest.findById(input), outerCtx);
             log.info(MongoTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -102,16 +98,14 @@ public class MongoTestClient {
     public <T> Step<T, T> findByFields() {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.FIND_BY_FIELDS, input.getClass().getSimpleName());
-            T result = Pipeline.given(MongoRequest.findByFields(input))
-                    .withContext(outerCtx)
-                    .then(Retry.of(
+            T result = Retry.of(
                             Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::findByFields)
                                     .andThen(mongoCheck.documentExists()),
                             retryConfig
-                    ))
-                    .then((MongoResult<T> r, PipelineContext ctx) -> r.document())
-                    .then(check.matchingNonNull(input))
-                    .execute();
+                    )
+                    .andThen((MongoResult<T> r, PipelineContext ctx) -> r.document())
+                    .andThen(check.matchingNonNull(input))
+                    .apply(MongoRequest.findByFields(input), outerCtx);
             log.info(MongoTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -124,10 +118,8 @@ public class MongoTestClient {
     public <T> Step<T, Long> countByFields() {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.COUNT_BY_FIELDS, input.getClass().getSimpleName());
-            Long count = Pipeline.given(MongoRequest.countByFields(input))
-                    .withContext(outerCtx)
-                    .then(mongoSteps::countByFields)
-                    .execute();
+            Long count = Step.<MongoRequest<T>, Long>of(mongoSteps::countByFields)
+                    .apply(MongoRequest.countByFields(input), outerCtx);
             log.info(MongoTestClientLogTemplates.VERIFIED);
             return count;
         };
@@ -141,13 +133,11 @@ public class MongoTestClient {
     public <T> Step<MongoRequest<T>, T> persist(T expectedDocument) {
         return (request, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.PERSIST, expectedDocument.getClass().getSimpleName());
-            T result = Pipeline.given(request)
-                    .withContext(outerCtx)
-                    .then(mongoSteps::persist)
-                    .then(mongoCheck.documentExists())
-                    .then((MongoResult<T> r, PipelineContext ctx) -> r.document())
-                    .then(check.matchingNonNull(expectedDocument))
-                    .execute();
+            T result = Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::persist)
+                    .andThen(mongoCheck.documentExists())
+                    .andThen((MongoResult<T> r, PipelineContext ctx) -> r.document())
+                    .andThen(check.matchingNonNull(expectedDocument))
+                    .apply(request, outerCtx);
             log.info(MongoTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -162,14 +152,11 @@ public class MongoTestClient {
     public <T> Step<T, T> existsById() {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.EXISTS, input.getClass().getSimpleName());
-            Pipeline.given(MongoRequest.findById(input))
-                    .withContext(outerCtx)
-                    .then(Retry.of(
-                            Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::exists)
-                                    .andThen(mongoCheck.documentExists()),
-                            retryConfig
-                    ))
-                    .execute();
+            Retry.of(
+                    Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::exists)
+                            .andThen(mongoCheck.documentExists()),
+                    retryConfig
+            ).apply(MongoRequest.findById(input), outerCtx);
             log.info(MongoTestClientLogTemplates.VERIFIED);
             return input;
         };
@@ -182,11 +169,9 @@ public class MongoTestClient {
     public <T> Step<T, T> notExistsById() {
         return (input, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.NOT_EXISTS, input.getClass().getSimpleName());
-            Pipeline.given(MongoRequest.findById(input))
-                    .withContext(outerCtx)
-                    .then(mongoSteps::exists)
-                    .then(mongoCheck.documentNotExists())
-                    .execute();
+            Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::exists)
+                    .andThen(mongoCheck.documentNotExists())
+                    .apply(MongoRequest.findById(input), outerCtx);
             log.info(MongoTestClientLogTemplates.ABSENT);
             return input;
         };
@@ -200,23 +185,19 @@ public class MongoTestClient {
     public <T> Step<MongoRequest<T>, MongoResult<T>> exists() {
         return (request, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.EXISTS, request.documentClass().getSimpleName());
-            return Pipeline.given(request)
-                    .withContext(outerCtx)
-                    .then(mongoSteps::exists)
-                    .then(mongoCheck.documentExists())
-                    .execute();
+            return Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::exists)
+                    .andThen(mongoCheck.documentExists())
+                    .apply(request, outerCtx);
         };
     }
 
     public <T> Step<MongoRequest<T>, Void> delete() {
         return (request, outerCtx) -> {
             log.info(MongoTestClientLogTemplates.DELETE, request.documentClass().getSimpleName());
-            return Pipeline.given(request)
-                    .withContext(outerCtx)
-                    .then(mongoSteps::delete)
-                    .then(mongoCheck.documentNotExists())
-                    .then((MongoResult<T> r, PipelineContext ctx) -> (Void) null)
-                    .execute();
+            return Step.<MongoRequest<T>, MongoResult<T>>of(mongoSteps::delete)
+                    .andThen(mongoCheck.documentNotExists())
+                    .andThen((MongoResult<T> r, PipelineContext ctx) -> (Void) null)
+                    .apply(request, outerCtx);
         };
     }
 }

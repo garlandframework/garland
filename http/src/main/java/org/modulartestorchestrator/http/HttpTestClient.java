@@ -161,10 +161,8 @@ public class HttpTestClient {
         return (request, outerCtx) -> {
             HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
-            R result = Pipeline.given(merged)
-                    .withContext(outerCtx)
-                    .then(Retry.of(buildCallAndCheck(responseType, expected.status(), expectedHeaders, expected.dto()), retryConfig))
-                    .execute();
+            R result = Retry.<HttpCallRequest<T>, R>of(buildCallAndCheck(responseType, expected.status(), expectedHeaders, expected.dto()), retryConfig)
+                    .apply(merged, outerCtx);
             log.info(HttpTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -183,10 +181,8 @@ public class HttpTestClient {
         return (request, outerCtx) -> {
             HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
-            R result = Pipeline.given(merged)
-                    .withContext(outerCtx)
-                    .then(Retry.of(buildCallAndCheck(typeRef, expected.status(), expectedHeaders, expected.dto()), retryConfig))
-                    .execute();
+            R result = Retry.<HttpCallRequest<T>, R>of(buildCallAndCheck(typeRef, expected.status(), expectedHeaders, expected.dto()), retryConfig)
+                    .apply(merged, outerCtx);
             log.info(HttpTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -205,10 +201,8 @@ public class HttpTestClient {
         return (request, outerCtx) -> {
             HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
-            R result = Pipeline.given(merged)
-                    .withContext(outerCtx)
-                    .then(Retry.of(buildCallAndCheck(typeRef, expected.status(), expectedHeaders, expected.dto(), temporalTolerance), retryConfig))
-                    .execute();
+            R result = Retry.<HttpCallRequest<T>, R>of(buildCallAndCheck(typeRef, expected.status(), expectedHeaders, expected.dto(), temporalTolerance), retryConfig)
+                    .apply(merged, outerCtx);
             log.info(HttpTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -229,10 +223,8 @@ public class HttpTestClient {
         return (request, outerCtx) -> {
             HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
-            R result = Pipeline.given(merged)
-                    .withContext(outerCtx)
-                    .then(Retry.of(buildCallAndCheck(responseType, expected.status(), expectedHeaders, expected.dto(), temporalTolerance), retryConfig))
-                    .execute();
+            R result = Retry.<HttpCallRequest<T>, R>of(buildCallAndCheck(responseType, expected.status(), expectedHeaders, expected.dto(), temporalTolerance), retryConfig)
+                    .apply(merged, outerCtx);
             log.info(HttpTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -247,10 +239,8 @@ public class HttpTestClient {
         return (request, outerCtx) -> {
             HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
-            return Pipeline.given(merged)
-                    .withContext(outerCtx)
-                    .then(Retry.of(buildCallWithStatusCheck(expectedStatus, responseType), retryConfig))
-                    .execute();
+            return Retry.<HttpCallRequest<T>, R>of(buildCallWithStatusCheck(expectedStatus, responseType), retryConfig)
+                    .apply(merged, outerCtx);
         };
     }
 
@@ -262,10 +252,8 @@ public class HttpTestClient {
         return (request, outerCtx) -> {
             HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
-            return Pipeline.given(merged)
-                    .withContext(outerCtx)
-                    .then(Retry.of(buildCallWithStatusCheck(expectedStatus, typeRef), retryConfig))
-                    .execute();
+            return Retry.<HttpCallRequest<T>, R>of(buildCallWithStatusCheck(expectedStatus, typeRef), retryConfig)
+                    .apply(merged, outerCtx);
         };
     }
 
@@ -280,17 +268,14 @@ public class HttpTestClient {
     @SuppressWarnings("unchecked")
     public <T, R> Step<HttpCallRequest<T>, R> pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig) {
         Class<R> responseType = (Class<R>) expectedDto.getClass();
-        return (request, outerCtx) -> Pipeline.given(mergeHeaders(request, outerCtx))
-                .withContext(outerCtx)
-                .then(Retry.of(
-                        Step.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
-                                .andThen(httpCheck.statusCode(expectedStatus))
-                                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
-                                .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
-                                .andThen(check.matchingNonNull(expectedDto)),
-                        retryConfig
-                ))
-                .execute();
+        return (request, outerCtx) -> Retry.<HttpCallRequest<T>, R>of(
+                Step.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
+                        .andThen(httpCheck.statusCode(expectedStatus))
+                        .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
+                        .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
+                        .andThen(check.matchingNonNull(expectedDto)),
+                retryConfig
+        ).apply(mergeHeaders(request, outerCtx), outerCtx);
     }
 
     /**
@@ -300,17 +285,14 @@ public class HttpTestClient {
     @SuppressWarnings("unchecked")
     public <T, R> Step<HttpCallRequest<T>, R> pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig, Duration temporalTolerance) {
         Class<R> responseType = (Class<R>) expectedDto.getClass();
-        return (request, outerCtx) -> Pipeline.given(mergeHeaders(request, outerCtx))
-                .withContext(outerCtx)
-                .then(Retry.of(
-                        Step.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
-                                .andThen(httpCheck.statusCode(expectedStatus))
-                                .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
-                                .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
-                                .andThen(check.matchingNonNull(expectedDto, temporalTolerance)),
-                        retryConfig
-                ))
-                .execute();
+        return (request, outerCtx) -> Retry.<HttpCallRequest<T>, R>of(
+                Step.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
+                        .andThen(httpCheck.statusCode(expectedStatus))
+                        .andThen((HttpResponse<String> response, PipelineContext ctx) -> httpSteps.deserialize(response, responseType))
+                        .andThen((HttpCallResponse<R> response, PipelineContext ctx) -> response.dto())
+                        .andThen(check.matchingNonNull(expectedDto, temporalTolerance)),
+                retryConfig
+        ).apply(mergeHeaders(request, outerCtx), outerCtx);
     }
 
     private <T> HttpCallRequest<T> mergeHeaders(HttpCallRequest<T> request, PipelineContext ctx) {

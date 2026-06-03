@@ -49,30 +49,24 @@ public class KafkaTestClient {
      * is performed — use the overloads below if you also want to verify the content.
      */
     public <I, T> Step<I, T> consume(Class<T> type) {
-        return (input, outerCtx) -> Pipeline.given(input)
-                .withContext(outerCtx)
-                .then(Retry.of(kafkaSteps.consume(type), retryConfig))
-                .execute();
+        return (input, outerCtx) -> Retry.of(kafkaSteps.consume(type), retryConfig)
+                .apply(input, outerCtx);
     }
 
     /** Reads the next record, deserializes it, and asserts it matches {@code expected} (null fields ignored). */
     public <I, T> Step<I, T> consume(Class<T> type, T expected) {
-        return (input, outerCtx) -> Pipeline.given(input)
-                .withContext(outerCtx)
-                .then(Retry.of(
-                        kafkaSteps.<I, T>consume(type).andThen(check.matchingNonNull(expected)),
-                        retryConfig))
-                .execute();
+        return (input, outerCtx) -> Retry.of(
+                kafkaSteps.<I, T>consume(type).andThen(check.matchingNonNull(expected)),
+                retryConfig
+        ).apply(input, outerCtx);
     }
 
     /** Same as {@link #consume(Class, Object)} but applies temporal tolerance to timestamp fields. */
     public <I, T> Step<I, T> consume(Class<T> type, T expected, Duration temporalTolerance) {
-        return (input, outerCtx) -> Pipeline.given(input)
-                .withContext(outerCtx)
-                .then(Retry.of(
-                        kafkaSteps.<I, T>consume(type).andThen(check.matchingNonNull(expected, temporalTolerance)),
-                        retryConfig))
-                .execute();
+        return (input, outerCtx) -> Retry.of(
+                kafkaSteps.<I, T>consume(type).andThen(check.matchingNonNull(expected, temporalTolerance)),
+                retryConfig
+        ).apply(input, outerCtx);
     }
 
     /**

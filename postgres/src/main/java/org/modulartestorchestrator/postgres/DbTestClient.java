@@ -50,16 +50,14 @@ public class DbTestClient {
     public <T> Step<T, T> findById() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
-            T result = Pipeline.given(DbRequest.findById(input))
-                    .withContext(outerCtx)
-                    .then(Retry.of(
+            T result = Retry.of(
                             Step.<DbRequest<T>, DbResult<T>>of(dbSteps::findById)
                                     .andThen(dbCheck.entityExists()),
                             retryConfig
-                    ))
-                    .then((DbResult<T> r, PipelineContext ctx) -> r.entity())
-                    .then(check.matchingNonNull(input))
-                    .execute();
+                    )
+                    .andThen((DbResult<T> r, PipelineContext ctx) -> r.entity())
+                    .andThen(check.matchingNonNull(input))
+                    .apply(DbRequest.findById(input), outerCtx);
             log.info(DbTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -73,16 +71,14 @@ public class DbTestClient {
     public <T> Step<T, T> findById(Duration temporalTolerance) {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.FIND_BY_ID, input.getClass().getSimpleName());
-            T result = Pipeline.given(DbRequest.findById(input))
-                    .withContext(outerCtx)
-                    .then(Retry.of(
+            T result = Retry.of(
                             Step.<DbRequest<T>, DbResult<T>>of(dbSteps::findById)
                                     .andThen(dbCheck.entityExists()),
                             retryConfig
-                    ))
-                    .then((DbResult<T> r, PipelineContext ctx) -> r.entity())
-                    .then(check.matchingNonNull(input, temporalTolerance))
-                    .execute();
+                    )
+                    .andThen((DbResult<T> r, PipelineContext ctx) -> r.entity())
+                    .andThen(check.matchingNonNull(input, temporalTolerance))
+                    .apply(DbRequest.findById(input), outerCtx);
             log.info(DbTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -100,16 +96,14 @@ public class DbTestClient {
     public <T> Step<T, T> findByFields() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.FIND_BY_FIELDS, input.getClass().getSimpleName());
-            T result = Pipeline.given(DbRequest.findByFields(input))
-                    .withContext(outerCtx)
-                    .then(Retry.of(
+            T result = Retry.of(
                             Step.<DbRequest<T>, DbResult<T>>of(dbSteps::findByFields)
                                     .andThen(dbCheck.entityExists()),
                             retryConfig
-                    ))
-                    .then((DbResult<T> r, PipelineContext ctx) -> r.entity())
-                    .then(check.matchingNonNull(input))
-                    .execute();
+                    )
+                    .andThen((DbResult<T> r, PipelineContext ctx) -> r.entity())
+                    .andThen(check.matchingNonNull(input))
+                    .apply(DbRequest.findByFields(input), outerCtx);
             log.info(DbTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -123,10 +117,8 @@ public class DbTestClient {
     public <T> Step<T, Long> countByFields() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.COUNT_BY_FIELDS, input.getClass().getSimpleName());
-            Long count = Pipeline.given(DbRequest.countByFields(input))
-                    .withContext(outerCtx)
-                    .then(dbSteps::countByFields)
-                    .execute();
+            Long count = Step.<DbRequest<T>, Long>of(dbSteps::countByFields)
+                    .apply(DbRequest.countByFields(input), outerCtx);
             log.info(DbTestClientLogTemplates.VERIFIED);
             return count;
         };
@@ -140,13 +132,11 @@ public class DbTestClient {
     public <T> Step<DbRequest<T>, T> persist(T expectedEntity) {
         return (request, outerCtx) -> {
             log.info(DbTestClientLogTemplates.PERSIST, expectedEntity.getClass().getSimpleName());
-            T result = Pipeline.given(request)
-                    .withContext(outerCtx)
-                    .then(dbSteps::persist)
-                    .then(dbCheck.entityExists())
-                    .then((DbResult<T> r, PipelineContext ctx) -> r.entity())
-                    .then(check.matchingNonNull(expectedEntity))
-                    .execute();
+            T result = Step.<DbRequest<T>, DbResult<T>>of(dbSteps::persist)
+                    .andThen(dbCheck.entityExists())
+                    .andThen((DbResult<T> r, PipelineContext ctx) -> r.entity())
+                    .andThen(check.matchingNonNull(expectedEntity))
+                    .apply(request, outerCtx);
             log.info(DbTestClientLogTemplates.VERIFIED);
             return result;
         };
@@ -162,14 +152,11 @@ public class DbTestClient {
     public <T> Step<T, T> existsById() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.EXISTS, input.getClass().getSimpleName());
-            Pipeline.given(DbRequest.exists(input))
-                    .withContext(outerCtx)
-                    .then(Retry.of(
-                            Step.<DbRequest<T>, DbResult<T>>of(dbSteps::exists)
-                                    .andThen(dbCheck.entityExists()),
-                            retryConfig
-                    ))
-                    .execute();
+            Retry.of(
+                    Step.<DbRequest<T>, DbResult<T>>of(dbSteps::exists)
+                            .andThen(dbCheck.entityExists()),
+                    retryConfig
+            ).apply(DbRequest.exists(input), outerCtx);
             log.info(DbTestClientLogTemplates.VERIFIED);
             return input;
         };
@@ -183,11 +170,9 @@ public class DbTestClient {
     public <T> Step<T, T> notExistsById() {
         return (input, outerCtx) -> {
             log.info(DbTestClientLogTemplates.NOT_EXISTS, input.getClass().getSimpleName());
-            Pipeline.given(DbRequest.exists(input))
-                    .withContext(outerCtx)
-                    .then(dbSteps::exists)
-                    .then(dbCheck.entityNotExists())
-                    .execute();
+            Step.<DbRequest<T>, DbResult<T>>of(dbSteps::exists)
+                    .andThen(dbCheck.entityNotExists())
+                    .apply(DbRequest.exists(input), outerCtx);
             log.info(DbTestClientLogTemplates.ABSENT);
             return input;
         };
@@ -202,23 +187,19 @@ public class DbTestClient {
     public <T> Step<DbRequest<T>, DbResult<T>> exists() {
         return (request, outerCtx) -> {
             log.info(DbTestClientLogTemplates.EXISTS, request.entityClass().getSimpleName());
-            return Pipeline.given(request)
-                    .withContext(outerCtx)
-                    .then(dbSteps::exists)
-                    .then(dbCheck.entityExists())
-                    .execute();
+            return Step.<DbRequest<T>, DbResult<T>>of(dbSteps::exists)
+                    .andThen(dbCheck.entityExists())
+                    .apply(request, outerCtx);
         };
     }
 
     public <T> Step<DbRequest<T>, Void> delete() {
         return (request, outerCtx) -> {
             log.info(DbTestClientLogTemplates.DELETE, request.entityClass().getSimpleName());
-            return Pipeline.given(request)
-                    .withContext(outerCtx)
-                    .then(dbSteps::delete)
-                    .then(dbCheck.entityNotExists())
-                    .then((DbResult<T> r, PipelineContext ctx) -> (Void) null)
-                    .execute();
+            return Step.<DbRequest<T>, DbResult<T>>of(dbSteps::delete)
+                    .andThen(dbCheck.entityNotExists())
+                    .andThen((DbResult<T> r, PipelineContext ctx) -> (Void) null)
+                    .apply(request, outerCtx);
         };
     }
 }
