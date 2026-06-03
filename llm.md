@@ -107,7 +107,7 @@ Bridges are chained with `.andThen()` to build branch expressions for `allOf`:
 ```java
 UserTestMapper.toPlacedEvent()
         .andThen(OrderTestMapper.toProjectionDoc())
-        .andThen(mongoClient.findById(Duration.ofMillis(1)))
+        .andThen(mongoClient.findById())
 ```
 
 ---
@@ -170,7 +170,7 @@ Rules:
 // Asserts record/document exists AND matches expected — throws if absent or mismatched
 dbClient.findById()
 mongoClient.findById()
-mongoClient.findById(Duration.ofMillis(1))  // timestamp-tolerant
+mongoClient.findById(Duration)              // override default tolerance for this call
 
 // Asserts exactly one match — throws if 0 or >1 results
 dbClient.findByFields()
@@ -206,12 +206,21 @@ Never unwrap the count outside the pipeline and assert with a bare `assertThat`.
 
 Two separate situations require temporal tolerance:
 
-### MongoDB millisecond truncation
-MongoDB stores `Instant` with millisecond precision. Any expected document containing a timestamp field must use `findById(Duration.ofMillis(1))` or the exact comparison will fail on sub-millisecond differences:
+### Storage precision truncation
+Each storage technology truncates `Instant` precision: MongoDB to milliseconds, PostgreSQL to microseconds. Rather than annotating every assertion site, set a client-level default in `BaseTest` via `withTemporalTolerance()`:
 
 ```java
-mongoClient.findById(Duration.ofMillis(1))
+dbClient    = new PostgresTestClient(postgres, retryConfig)
+        .withTemporalTolerance(Duration.ofNanos(1000)); // absorbs Postgres µs truncation
+
+mongoClient = new MongoTestClient(mongo, retryConfig)
+        .withTemporalTolerance(Duration.ofMillis(1));   // absorbs MongoDB ms truncation
+
+kafkaClient = new KafkaTestClient(config, retryConfig)
+        .withTemporalTolerance(Duration.ofMillis(1));   // absorbs DB-echo truncation in events
 ```
+
+With defaults set, `findById()` and `consumeMatching()` apply the tolerance automatically — no per-call annotation needed. Use the explicit `findById(Duration)` / `consumeMatching(Class, Duration)` overload only when a specific assertion needs a higher tolerance than the default.
 
 ### Service-generated timestamps
 When a service sets a timestamp internally (e.g. `eventTimestamp = Instant.now()`), capture the test start time and pass it as the expected value with a tolerance equal to the maximum acceptable processing delay:
@@ -312,7 +321,7 @@ The login endpoint is excluded from token validation — using `httpClient` (whi
 
 **Do not use separate `Pipeline.given()` blocks for post-action assertions.** Three separate pipelines for DB / Kafka / Mongo checks after a create is harder to read and fails fast on the first failure. `Verify.allOf()` collects all failures in one report.
 
-**Do not assert timestamps without tolerance.** An assertion on `Instant` without a tolerance is fragile — it will fail due to truncation (MongoDB) or clock precision. Always use `Duration.ofMillis(1)` for MongoDB docs and a meaningful SLA duration for service-generated timestamps.
+**Do not assert timestamps without tolerance.** An assertion on `Instant` without a tolerance is fragile — it will fail due to storage truncation or clock precision. Set default tolerances via `withTemporalTolerance()` in `BaseTest` so every `findById()` and `consumeMatching()` call inherits them. Use the explicit `Duration` overloads only for SLA-style assertions on service-generated timestamps.
 
 **Do not use raw `assertThat` for values that come out of pipelines.** Keep assertions inside the pipeline using `Verify.matching`, `Verify.equalTo`, `Verify.containsAll`. Use `assertThat` only for assertions on data that lives entirely outside any pipeline (e.g. the `doesNotContain` list check after `Pipeline.execute()`).
 
