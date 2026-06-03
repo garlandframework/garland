@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * High-level HTTP client for test pipelines. Combines request execution, status assertion,
@@ -43,6 +44,7 @@ import java.util.Map;
 public class HttpTestClient {
 
     private static final Logger log = LoggerFactory.getLogger("HTTP");
+    static final String BEARER_CTX_KEY = "http.bearer";
 
     private final HttpSteps httpSteps       = new HttpSteps();
     private final HttpCheckSteps httpCheck  = new HttpCheckSteps();
@@ -100,6 +102,39 @@ public class HttpTestClient {
     }
 
     /**
+     * Returns a step that stores the input string as a Bearer token in the pipeline context.
+     * Any subsequent {@link #makeCall} in the same pipeline will inject it as
+     * {@code Authorization: Bearer <token>} unless the client already has an
+     * {@code Authorization} header configured via {@link #withBearer}.
+     */
+    public static Step<String, String> storeBearer() {
+        return (token, ctx) -> {
+            ctx.put(BEARER_CTX_KEY, token);
+            return token;
+        };
+    }
+
+    /**
+     * Returns a step that extracts a Bearer token from the input using {@code tokenExtractor},
+     * stores it in the pipeline context, and returns the input unchanged. Use when a preceding
+     * step returns a DTO that contains the token:
+     * <pre>{@code
+     * Pipeline.given(loginRequest())
+     *         .then(http.makeCall(200, TokenDto.class))
+     *         .then(HttpTestClient.storeBearer(TokenDto::accessToken))
+     *         .then(dto -> buildNextRequest(dto))
+     *         .then(http.makeCall(201, ResultDto.class))  // Authorization injected automatically
+     *         .execute();
+     * }</pre>
+     */
+    public static <T> Step<T, T> storeBearer(Function<T, String> tokenExtractor) {
+        return (input, ctx) -> {
+            ctx.put(BEARER_CTX_KEY, tokenExtractor.apply(input));
+            return input;
+        };
+    }
+
+    /**
      * Executes the request and asserts status code, response headers (subset), and body
      * (null fields in the expected DTO are ignored). Use this for happy-path assertions
      * where you want to verify the full response shape.
@@ -114,7 +149,7 @@ public class HttpTestClient {
                 .toList();
 
         return (request, outerCtx) -> {
-            HttpCallRequest<T> merged = mergeHeaders(request);
+            HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
             R result = Pipeline.given(merged)
                     .withContext(outerCtx)
@@ -136,7 +171,7 @@ public class HttpTestClient {
                 .toList();
 
         return (request, outerCtx) -> {
-            HttpCallRequest<T> merged = mergeHeaders(request);
+            HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
             R result = Pipeline.given(merged)
                     .withContext(outerCtx)
@@ -158,7 +193,7 @@ public class HttpTestClient {
                 .toList();
 
         return (request, outerCtx) -> {
-            HttpCallRequest<T> merged = mergeHeaders(request);
+            HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
             R result = Pipeline.given(merged)
                     .withContext(outerCtx)
@@ -182,7 +217,7 @@ public class HttpTestClient {
                 .toList();
 
         return (request, outerCtx) -> {
-            HttpCallRequest<T> merged = mergeHeaders(request);
+            HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
             R result = Pipeline.given(merged)
                     .withContext(outerCtx)
@@ -200,7 +235,7 @@ public class HttpTestClient {
      */
     public <T, R> Step<HttpCallRequest<T>, R> makeCall(int expectedStatus, Class<R> responseType) {
         return (request, outerCtx) -> {
-            HttpCallRequest<T> merged = mergeHeaders(request);
+            HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
             return Pipeline.given(merged)
                     .withContext(outerCtx)
@@ -215,7 +250,7 @@ public class HttpTestClient {
      */
     public <T, R> Step<HttpCallRequest<T>, R> makeCall(int expectedStatus, TypeReference<R> typeRef) {
         return (request, outerCtx) -> {
-            HttpCallRequest<T> merged = mergeHeaders(request);
+            HttpCallRequest<T> merged = mergeHeaders(request, outerCtx);
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
             return Pipeline.given(merged)
                     .withContext(outerCtx)
@@ -235,7 +270,7 @@ public class HttpTestClient {
     @SuppressWarnings("unchecked")
     public <T, R> Step<HttpCallRequest<T>, R> pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig) {
         Class<R> responseType = (Class<R>) expectedDto.getClass();
-        return (request, outerCtx) -> Pipeline.given(mergeHeaders(request))
+        return (request, outerCtx) -> Pipeline.given(mergeHeaders(request, outerCtx))
                 .withContext(outerCtx)
                 .then(Retry.of(
                         Step.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
@@ -255,7 +290,7 @@ public class HttpTestClient {
     @SuppressWarnings("unchecked")
     public <T, R> Step<HttpCallRequest<T>, R> pollingCall(int expectedStatus, R expectedDto, RetryConfig retryConfig, Duration temporalTolerance) {
         Class<R> responseType = (Class<R>) expectedDto.getClass();
-        return (request, outerCtx) -> Pipeline.given(mergeHeaders(request))
+        return (request, outerCtx) -> Pipeline.given(mergeHeaders(request, outerCtx))
                 .withContext(outerCtx)
                 .then(Retry.of(
                         Step.<HttpCallRequest<T>, HttpResponse<String>>of(httpSteps::call)
@@ -268,13 +303,16 @@ public class HttpTestClient {
                 .execute();
     }
 
-    private <T> HttpCallRequest<T> mergeHeaders(HttpCallRequest<T> request) {
-        if (defaultHeaders.isEmpty()) {
+    private <T> HttpCallRequest<T> mergeHeaders(HttpCallRequest<T> request, PipelineContext ctx) {
+        if (defaultHeaders.isEmpty() && !ctx.contains(BEARER_CTX_KEY)) {
             return request;
         }
         Map<String, String> merged = new HashMap<>();
         request.headers().forEach(h -> merged.put(h.name(), h.value()));
         merged.putAll(defaultHeaders); // client defaults win over per-request headers
+        if (!merged.containsKey("Authorization") && ctx.contains(BEARER_CTX_KEY)) {
+            merged.put("Authorization", "Bearer " + ctx.<String>get(BEARER_CTX_KEY));
+        }
         List<Header> mergedList = merged.entrySet().stream()
                 .map(e -> new Header(e.getKey(), e.getValue()))
                 .collect(java.util.stream.Collectors.toList());
