@@ -25,21 +25,31 @@ import java.util.function.Function;
  * High-level HTTP client for test pipelines. Combines request execution, status assertion,
  * response deserialization, and optional body matching into a single {@link Step}.
  *
- * <p><strong>Auth and headers are stored in the instance.</strong> {@link #withBearer},
+ * <h2>Auth — two patterns</h2>
+ *
+ * <p><strong>Client-level (token known before the pipeline):</strong> {@link #withBearer},
  * {@link #withHeader}, and {@link #withApiKey} each return a new instance — the original
- * is never modified. Never reassign the shared client reference; create a new variable:
+ * is never modified. Use this for a suite-wide token that is fetched once in a {@code @BeforeClass}:
  *
  * <pre>{@code
- * // correct — shared httpClient is unchanged
- * HttpTestClient authed = httpClient.withBearer(token);
- *
- * // wrong — breaks every other reference to httpClient
- * httpClient = httpClient.withBearer(token);
+ * HttpTestClient authed = http.withBearer(token);
  * }</pre>
  *
- * <p>When a request carries per-request headers and the client has defaults set, the
- * client's defaults win. This ensures a suite-wide token cannot be accidentally
- * overridden by an individual request factory.
+ * <p><strong>Context-level (token fetched inside the pipeline):</strong> {@link #storeBearer}
+ * stores the token in {@link PipelineContext}; every subsequent {@link #makeCall} in the
+ * same pipeline picks it up automatically:
+ *
+ * <pre>{@code
+ * Pipeline.given(loginRequest())
+ *         .then(http.makeCall(200, TokenDto.class))
+ *         .then(HttpTestClient.storeBearer(TokenDto::accessToken))
+ *         .then(tokenDto -> buildNextRequest())
+ *         .then(http.makeCall(201, ResultDto.class))  // Authorization injected automatically
+ *         .execute();
+ * }</pre>
+ *
+ * <p><strong>Priority:</strong> client-level headers always win over context — a
+ * suite-wide token set via {@link #withBearer} cannot be overridden mid-pipeline.
  */
 public class HttpTestClient {
 
