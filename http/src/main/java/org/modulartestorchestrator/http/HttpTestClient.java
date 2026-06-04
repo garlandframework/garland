@@ -61,19 +61,22 @@ public class HttpTestClient {
     private final CheckSteps check          = new CheckSteps();
     private final RetryConfig retryConfig;
     private final Map<String, String> defaultHeaders;
+    private final String baseUrl;
 
     public HttpTestClient(RetryConfig retryConfig) {
         this.retryConfig = retryConfig;
         this.defaultHeaders = Map.of();
+        this.baseUrl = null;
     }
 
     public HttpTestClient() {
         this(RetryConfig.attempts(1));
     }
 
-    private HttpTestClient(RetryConfig retryConfig, Map<String, String> defaultHeaders) {
+    private HttpTestClient(RetryConfig retryConfig, Map<String, String> defaultHeaders, String baseUrl) {
         this.retryConfig = retryConfig;
         this.defaultHeaders = Map.copyOf(defaultHeaders);
+        this.baseUrl = baseUrl;
     }
 
     /**
@@ -83,7 +86,7 @@ public class HttpTestClient {
     public HttpTestClient withHeader(String name, String value) {
         Map<String, String> updated = new HashMap<>(defaultHeaders);
         updated.put(name, value);
-        return new HttpTestClient(retryConfig, updated);
+        return new HttpTestClient(retryConfig, updated, baseUrl);
     }
 
     /**
@@ -98,7 +101,7 @@ public class HttpTestClient {
     public HttpTestClient withoutHeader(String name) {
         Map<String, String> updated = new HashMap<>(defaultHeaders);
         updated.remove(name);
-        return new HttpTestClient(retryConfig, updated);
+        return new HttpTestClient(retryConfig, updated, baseUrl);
     }
 
     /** Returns a new client with {@code Authorization: Bearer <token>} as a default header. */
@@ -109,6 +112,27 @@ public class HttpTestClient {
     /** Convenience alias for {@link #withHeader(String, String)} for API-key auth schemes. */
     public HttpTestClient withApiKey(String headerName, String key) {
         return withHeader(headerName, key);
+    }
+
+    /**
+     * Returns a new client that prepends {@code baseUrl} to any request URL that starts
+     * with {@code /}. Absolute URLs (starting with {@code http}) are used as-is.
+     *
+     * <p>Use this to decouple request factories from the host:
+     * <pre>{@code
+     * HttpTestClient client = new HttpTestClient().withBaseUrl("http://localhost:8080");
+     *
+     * // request factory uses a relative path
+     * new HttpCallRequest<>("/api/users", "POST", List.of(), dto)
+     * }</pre>
+     *
+     * <p>Chaining is safe — all other {@code with*} methods preserve the base URL:
+     * <pre>{@code
+     * HttpTestClient authed = client.withBearer(token); // base URL carried over
+     * }</pre>
+     */
+    public HttpTestClient withBaseUrl(String baseUrl) {
+        return new HttpTestClient(retryConfig, defaultHeaders, baseUrl);
     }
 
     /**
@@ -296,7 +320,11 @@ public class HttpTestClient {
     }
 
     private <T> HttpCallRequest<T> mergeHeaders(HttpCallRequest<T> request, PipelineContext ctx) {
-        if (defaultHeaders.isEmpty() && !ctx.contains(BEARER_CTX_KEY)) {
+        String url = (baseUrl != null && request.url().startsWith("/"))
+                ? baseUrl + request.url()
+                : request.url();
+
+        if (defaultHeaders.isEmpty() && !ctx.contains(BEARER_CTX_KEY) && url.equals(request.url())) {
             return request;
         }
         Map<String, String> merged = new HashMap<>();
@@ -308,7 +336,7 @@ public class HttpTestClient {
         List<Header> mergedList = merged.entrySet().stream()
                 .map(e -> new Header(e.getKey(), e.getValue()))
                 .collect(java.util.stream.Collectors.toList());
-        return new HttpCallRequest<>(request.url(), request.method(), mergedList, request.dto(), request.queryParams());
+        return new HttpCallRequest<>(url, request.method(), mergedList, request.dto(), request.queryParams());
     }
 
     private <T, R> Step<HttpCallRequest<T>, R> buildCallAndCheck(

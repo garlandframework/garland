@@ -278,7 +278,7 @@ All tests in the suite share the authenticated `httpClient`. You do not acquire 
 
 In projects using OAuth2 client credentials the pattern is identical — only the URL and request body of the login pipeline change.
 
-### withBearer / withoutHeader / withApiKey
+### withBearer / withoutHeader / withApiKey / withBaseUrl
 
 `HttpTestClient` is immutable. Every `with*` / `without*` call returns a **new instance** — the shared `httpClient` is never mutated:
 
@@ -286,9 +286,18 @@ In projects using OAuth2 client credentials the pattern is identical — only th
 httpClient.withBearer("other-token")             // new instance, adds/replaces Authorization
 httpClient.withoutHeader("Authorization")         // new instance, removes Authorization
 httpClient.withApiKey("X-Api-Key", "key")         // new instance, adds header
+httpClient.withBaseUrl("http://localhost:8080")   // new instance, sets base URL
 ```
 
-Use these inline in a single `.then(...)` call for negative auth tests. Never reassign `httpClient` inside a test method — it is shared across the entire suite.
+`withBaseUrl` prepends the host to any request URL that starts with `/`. Absolute URLs are used as-is. All `with*` methods carry the base URL forward — you can chain them in any order:
+
+```java
+HttpTestClient client = new HttpTestClient()
+        .withBaseUrl("http://localhost:8080")
+        .withBearer(token);           // base URL is preserved
+```
+
+Use inline `with*` calls for negative auth tests. Never reassign `httpClient` inside a test method — it is shared across the entire suite.
 
 ### Negative auth tests
 
