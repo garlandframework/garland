@@ -315,6 +315,69 @@ The login endpoint is excluded from token validation — using `httpClient` (whi
 
 ---
 
+## 12. Query parameters
+
+Query parameters are a first-class field on `HttpCallRequest` — never string-concat them into the URL. They are percent-encoded and appended at call time, so the factory method stays clean and tests can override individual values.
+
+### withQueryParam — single parameter (adversarial tests)
+
+Use in tests to inject one valid, invalid, or malformed value on top of the factory default:
+
+```java
+// valid value
+Pipeline.given(TestUserRequests.getUsers().withQueryParam("page", "0"))
+        .then(httpClient.makeCall(200, new TypeReference<List<UserDto>>() {}))
+        .execute();
+
+// invalid value — server rejects with 400
+Pipeline.given(TestUserRequests.getUsers().withQueryParam("page", "-1"))
+        .then(httpClient.makeCall(400, ValidationErrorDto.class))
+        .then(Verify.matching(ValidationErrorDto.forField("page")))
+        .execute();
+
+// malformed value — cannot be parsed as expected type
+Pipeline.given(TestUserRequests.getUsers().withQueryParam("page", "abc"))
+        .then(httpClient.makeCall(400, ErrorDto.class))
+        .execute();
+
+// too-long value
+Pipeline.given(TestUserRequests.searchUsers().withQueryParam("name", "a".repeat(256)))
+        .then(httpClient.makeCall(400, ValidationErrorDto.class))
+        .then(Verify.matching(ValidationErrorDto.forField("name")))
+        .execute();
+```
+
+### withQueryParams — multiple parameters (factory methods / happy path)
+
+Use in request factory methods when a request naturally carries several parameters:
+
+```java
+// in a factory method
+public static HttpCallRequest<Void> getUsers(int page, int size) {
+    return new HttpCallRequest<>(BASE_URL + "/api/users", "GET", List.of(), null)
+            .withQueryParams(Map.of("page", String.valueOf(page), "size", String.valueOf(size)));
+}
+
+// or in a test directly
+Pipeline.given(TestUserRequests.getUsers().withQueryParams(Map.of("page", "0", "size", "10")))
+        .then(httpClient.makeCall(200, new TypeReference<List<UserDto>>() {}))
+        .execute();
+```
+
+### Query parameter constraints table (in gen commands)
+
+Gen commands document query params the same way as body field constraints:
+
+```
+| Param | Type    | Constraint   | Invalid value | Malformed value    |
+|-------|---------|--------------|---------------|--------------------|
+| page  | Integer | >= 0         | -1            | "abc"              |
+| size  | Integer | 1–100        | 0, 101        | "xyz"              |
+| name  | String  | max 100 chars| "a".repeat(101) | —                |
+```
+
+---
+
 ## 9. Anti-patterns
 
 **Do not chain DB + Kafka sequentially when they are independent.** The old pattern `→ toEntity() → postgresClient.findById() → entityToEvent() → kafkaClient.consumeMatching()` forces sequential execution and hides the fact that these are parallel side-effects. Use `Verify.allOf()` instead.

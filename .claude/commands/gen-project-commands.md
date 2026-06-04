@@ -163,6 +163,14 @@ The rules below are specific to this project.
 <!-- for nested objects show path: address.street, cars[0].plateNumber -->
 <!-- for optional fields note they are optional -->
 
+## Query parameter constraints
+
+<!-- Omit this section entirely if the endpoint has no query parameters -->
+
+| Param | Type | Constraint | Invalid value | Malformed value |
+|-------|------|------------|---------------|-----------------|
+<!-- from analysis: every query param accepted by endpoints in this domain with real constraint values -->
+
 ## Learned patterns
 
 <!-- Empty at generation time. Updated after test generation sessions.

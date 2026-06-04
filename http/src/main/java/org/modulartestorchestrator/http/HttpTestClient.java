@@ -308,7 +308,7 @@ public class HttpTestClient {
         List<Header> mergedList = merged.entrySet().stream()
                 .map(e -> new Header(e.getKey(), e.getValue()))
                 .collect(java.util.stream.Collectors.toList());
-        return new HttpCallRequest<>(request.url(), request.method(), mergedList, request.dto());
+        return new HttpCallRequest<>(request.url(), request.method(), mergedList, request.dto(), request.queryParams());
     }
 
     private <T, R> Step<HttpCallRequest<T>, R> buildCallAndCheck(

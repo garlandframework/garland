@@ -10,7 +10,11 @@ import org.modulartestorchestrator.http.model.HttpCallResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Low-level HTTP execution steps: serializes the request DTO to JSON, sends it via
@@ -27,7 +31,7 @@ public class HttpSteps {
     public <T> java.net.http.HttpResponse<String> call(HttpCallRequest<T> request, PipelineContext ctx) throws Exception {
         String body = mapper.writeValueAsString(request.dto());
         String method = request.method();
-        String url = request.url();
+        String url = buildUrl(request.url(), request.queryParams());
         List<Header> headers = request.headers();
 
         log.info(HttpStepsLogTemplates.REQUEST_CURL, CurlBuilder.from(method, url, headers, body));
@@ -61,5 +65,14 @@ public class HttpSteps {
 
     public static <T> Step<HttpCallResponse<T>, T> extractDto() {
         return (response, ctx) -> response.dto();
+    }
+
+    private static String buildUrl(String baseUrl, Map<String, String> queryParams) {
+        if (queryParams.isEmpty()) return baseUrl;
+        String query = queryParams.entrySet().stream()
+                .map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8)
+                        + "=" + URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8))
+                .collect(Collectors.joining("&"));
+        return baseUrl + (baseUrl.contains("?") ? "&" : "?") + query;
     }
 }
