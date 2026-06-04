@@ -20,7 +20,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Low-level HTTP execution steps: serializes the request DTO to JSON, sends it via
+ * Low-level HTTP execution steps: serializes the request DTO to JSON (or uses the body as-is
+ * for {@code String}, {@link org.modulartestorchestrator.http.model.FormBody}, and
+ * {@link org.modulartestorchestrator.http.model.MultipartBody} dtos), sends via
  * {@link HttpClientWrapper}, and deserializes the response body. Used internally by
  * {@link HttpTestClient}.
  */
@@ -50,6 +52,12 @@ public class HttpSteps {
             List<Header> headers = withContentType(baseHeaders, contentType);
             log.info(HttpStepsLogTemplates.REQUEST_CURL, CurlBuilder.fromMultipart(method, url, headers, multipartBody));
             java.net.http.HttpResponse<String> response = http.sendBytes(method, url, body, headers);
+            log.info(HttpStepsLogTemplates.RESPONSE_RECEIVED, response.statusCode(), response.body());
+            return response;
+        } else if (dto instanceof String rawBody) {
+            List<Header> headers = withContentType(baseHeaders, "application/json");
+            log.info(HttpStepsLogTemplates.REQUEST_CURL, CurlBuilder.from(method, url, headers, rawBody));
+            java.net.http.HttpResponse<String> response = http.send(method, url, rawBody, headers);
             log.info(HttpStepsLogTemplates.RESPONSE_RECEIVED, response.statusCode(), response.body());
             return response;
         } else {

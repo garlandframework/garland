@@ -425,9 +425,23 @@ new MultipartBody()
 
 `MultipartBody` is also immutable — each `.field()` / `.file()` call returns a new instance.
 
+### Raw string body
+
+Pass a `String` as the `dto` to send a pre-serialized body without Jackson touching it. Content-Type defaults to `application/json`. Use for pre-built JSON fixtures, captured replays, or parameterized string bodies.
+
+```java
+// pre-built JSON — Content-Type: application/json set automatically
+new HttpCallRequest<>(url, "POST", List.of(), "{\"name\":\"Alice\",\"surname\":\"Smith\"}")
+
+// non-JSON body — add Content-Type header to override
+new HttpCallRequest<>(url, "POST",
+        List.of(new Header("Content-Type", "application/xml")),
+        "<user><name>Alice</name></user>")
+```
+
 ### Content-Type override via headers
 
-When neither `FormBody` nor `MultipartBody` is used, the framework defaults to `application/json`. To send a custom content type with a JSON-shaped body, add a `Content-Type` header to the request — it takes precedence over the default:
+When neither `FormBody`, `MultipartBody`, nor a raw `String` is used, the framework defaults to `application/json`. To send a custom content type with a Jackson-serialized body, add a `Content-Type` header — it takes precedence over the default:
 
 ```java
 new HttpCallRequest<>(url, "POST",

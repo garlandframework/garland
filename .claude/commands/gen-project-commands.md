@@ -162,6 +162,14 @@ Use for endpoints that consume `multipart/form-data` (file uploads):
                     .file("photo", Path.of("/tmp/photo.jpg"), "image/jpeg"))
     // or from in-memory bytes:
             .file("content", data, "hello.txt", "text/plain")
+
+### Raw string body
+Use when the body is already serialized (JSON fixture, XML, plain text):
+
+    new HttpCallRequest<>(url, "POST", List.of(), "{\"name\":\"Alice\"}")
+    // non-JSON: add Content-Type header
+    new HttpCallRequest<>(url, "POST",
+            List.of(new Header("Content-Type", "application/xml")), "<root/>")
 -->
 
 ## Test data factories
