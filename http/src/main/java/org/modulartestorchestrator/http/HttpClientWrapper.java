@@ -7,8 +7,8 @@ import java.net.http.HttpClient;
 import java.util.List;
 
 /**
- * Thin wrapper around {@link java.net.http.HttpClient} that always sets
- * {@code Content-Type: application/json}. Used internally by {@link HttpSteps}.
+ * Thin wrapper around {@link java.net.http.HttpClient}. Used internally by {@link HttpSteps}.
+ * Callers are responsible for adding the correct {@code Content-Type} header.
  */
 public class HttpClientWrapper {
 
@@ -18,8 +18,22 @@ public class HttpClientWrapper {
 
         java.net.http.HttpRequest.Builder builder = java.net.http.HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .method(method, java.net.http.HttpRequest.BodyPublishers.ofString(body == null ? "" : body))
-                .header("Content-Type", "application/json");
+                .method(method, java.net.http.HttpRequest.BodyPublishers.ofString(body == null ? "" : body));
+
+        if (headers != null) {
+            for (Header h : headers) {
+                builder.header(h.name(), h.value());
+            }
+        }
+
+        return client.send(builder.build(), java.net.http.HttpResponse.BodyHandlers.ofString());
+    }
+
+    public java.net.http.HttpResponse<String> sendBytes(String method, String url, byte[] body, List<Header> headers) throws Exception {
+
+        java.net.http.HttpRequest.Builder builder = java.net.http.HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .method(method, java.net.http.HttpRequest.BodyPublishers.ofByteArray(body == null ? new byte[0] : body));
 
         if (headers != null) {
             for (Header h : headers) {

@@ -378,6 +378,65 @@ Gen commands document query params the same way as body field constraints:
 
 ---
 
+## 13. Content-Type bodies — FormBody and MultipartBody
+
+By default, the framework serializes the request DTO to JSON and sets `Content-Type: application/json`. Two typed body wrappers override this for non-JSON content types.
+
+### FormBody — application/x-www-form-urlencoded
+
+Pass a `FormBody` as the `dto`. The framework encodes all fields as percent-encoded `key=value` pairs and sets `Content-Type: application/x-www-form-urlencoded` automatically.
+
+Typical use: OAuth2 token endpoints, legacy form APIs.
+
+```java
+new HttpCallRequest<>(
+        Connections.AUTH_URL + "/oauth/token",
+        "POST",
+        List.of(),
+        new FormBody()
+                .field("grant_type", "client_credentials")
+                .field("client_id",  "my-client")
+                .field("client_secret", "secret"))
+```
+
+`FormBody` is immutable — each `.field()` call returns a new instance. Chain as many fields as needed.
+
+### MultipartBody — multipart/form-data
+
+Pass a `MultipartBody` as the `dto`. The framework builds the multipart byte stream with a random boundary and sets `Content-Type: multipart/form-data; boundary=...` automatically.
+
+Typical use: file upload endpoints.
+
+```java
+// file from disk
+new HttpCallRequest<>(
+        Connections.FILES_URL + "/upload",
+        "POST",
+        List.of(),
+        new MultipartBody()
+                .field("description", "profile photo")
+                .file("photo", Path.of("/tmp/photo.jpg"), "image/jpeg"))
+
+// file from in-memory bytes (no file on disk)
+new MultipartBody()
+        .field("label", "greeting")
+        .file("content", "hello world".getBytes(), "hello.txt", "text/plain")
+```
+
+`MultipartBody` is also immutable — each `.field()` / `.file()` call returns a new instance.
+
+### Content-Type override via headers
+
+When neither `FormBody` nor `MultipartBody` is used, the framework defaults to `application/json`. To send a custom content type with a JSON-shaped body, add a `Content-Type` header to the request — it takes precedence over the default:
+
+```java
+new HttpCallRequest<>(url, "POST",
+        List.of(new Header("Content-Type", "application/vnd.api+json")),
+        myDto)
+```
+
+---
+
 ## 9. Anti-patterns
 
 **Do not chain DB + Kafka sequentially when they are independent.** The old pattern `→ toEntity() → postgresClient.findById() → entityToEvent() → kafkaClient.consumeMatching()` forces sequential execution and hides the fact that these are parallel side-effects. Use `Verify.allOf()` instead.

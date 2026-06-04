@@ -47,7 +47,7 @@ Before generating anything, read the following. Do not guess — read the actual
 - Error DTO classes — the exact class names and factory methods used for 400, 404, 409 responses
 
 ### Source code
-- Controllers — every endpoint: HTTP method, path, request body type, response body type, path variables
+- Controllers — every endpoint: HTTP method, path, request body type, response body type, path variables; flag any endpoint that uses `consumes = "application/x-www-form-urlencoded"` or `consumes = "multipart/form-data"` (or `@RequestPart`) — these need `FormBody` / `MultipartBody` instead of a DTO
 - Request / DTO classes with validation annotations — extract every `@NotBlank`, `@NotNull`, `@Size(max=N)`, `@Positive`, `@Min`, `@Max`, `@Valid` annotation per field, including nested objects and collections
 - Entity classes — field names and types (for DB assertion context)
 - Event classes — field names (for Kafka assertion context)
@@ -138,6 +138,31 @@ The rules below are specific to this project.
 ## Request factories
 
 <!-- from analysis: every method in the real TestXxxRequests class with full signature -->
+
+## Content-type bodies
+
+<!-- Omit this section entirely if no endpoint in this domain accepts form or multipart bodies -->
+
+<!-- from analysis: for each form/multipart endpoint, show the factory pattern:
+
+### FormBody (application/x-www-form-urlencoded)
+Use for endpoints that consume `application/x-www-form-urlencoded` (OAuth2 token endpoints, legacy form APIs):
+
+    new HttpCallRequest<>(Connections.AUTH_URL + "/oauth/token", "POST", List.of(),
+            new FormBody()
+                    .field("grant_type", "client_credentials")
+                    .field("client_id",  "my-client"))
+
+### MultipartBody (multipart/form-data)
+Use for endpoints that consume `multipart/form-data` (file uploads):
+
+    new HttpCallRequest<>(Connections.FILES_URL + "/upload", "POST", List.of(),
+            new MultipartBody()
+                    .field("description", "profile photo")
+                    .file("photo", Path.of("/tmp/photo.jpg"), "image/jpeg"))
+    // or from in-memory bytes:
+            .file("content", data, "hello.txt", "text/plain")
+-->
 
 ## Test data factories
 

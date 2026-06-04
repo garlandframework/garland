@@ -4,14 +4,17 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.modulartestorchestrator.base.PipelineContext;
 import org.modulartestorchestrator.base.Step;
+import org.modulartestorchestrator.http.model.FormBody;
 import org.modulartestorchestrator.http.model.Header;
 import org.modulartestorchestrator.http.model.HttpCallRequest;
 import org.modulartestorchestrator.http.model.HttpCallResponse;
+import org.modulartestorchestrator.http.model.MultipartBody;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -29,18 +32,43 @@ public class HttpSteps {
     private final HttpClientWrapper http = new HttpClientWrapper();
 
     public <T> java.net.http.HttpResponse<String> call(HttpCallRequest<T> request, PipelineContext ctx) throws Exception {
-        String body = mapper.writeValueAsString(request.dto());
         String method = request.method();
         String url = buildUrl(request.url(), request.queryParams());
-        List<Header> headers = request.headers();
+        T dto = request.dto();
+        List<Header> baseHeaders = request.headers();
 
-        log.info(HttpStepsLogTemplates.REQUEST_CURL, CurlBuilder.from(method, url, headers, body));
+        if (dto instanceof FormBody formBody) {
+            String body = formBody.encode();
+            List<Header> headers = withContentType(baseHeaders, "application/x-www-form-urlencoded");
+            log.info(HttpStepsLogTemplates.REQUEST_CURL, CurlBuilder.from(method, url, headers, body));
+            java.net.http.HttpResponse<String> response = http.send(method, url, body, headers);
+            log.info(HttpStepsLogTemplates.RESPONSE_RECEIVED, response.statusCode(), response.body());
+            return response;
+        } else if (dto instanceof MultipartBody multipartBody) {
+            byte[] body = multipartBody.toBytes();
+            String contentType = "multipart/form-data; boundary=" + multipartBody.boundary();
+            List<Header> headers = withContentType(baseHeaders, contentType);
+            log.info(HttpStepsLogTemplates.REQUEST_CURL, CurlBuilder.fromMultipart(method, url, headers, multipartBody));
+            java.net.http.HttpResponse<String> response = http.sendBytes(method, url, body, headers);
+            log.info(HttpStepsLogTemplates.RESPONSE_RECEIVED, response.statusCode(), response.body());
+            return response;
+        } else {
+            String body = mapper.writeValueAsString(dto);
+            List<Header> headers = withContentType(baseHeaders, "application/json");
+            log.info(HttpStepsLogTemplates.REQUEST_CURL, CurlBuilder.from(method, url, headers, body));
+            java.net.http.HttpResponse<String> response = http.send(method, url, body, headers);
+            log.info(HttpStepsLogTemplates.RESPONSE_RECEIVED, response.statusCode(), response.body());
+            return response;
+        }
+    }
 
-        java.net.http.HttpResponse<String> response = http.send(method, url, body, headers);
-
-        log.info(HttpStepsLogTemplates.RESPONSE_RECEIVED, response.statusCode(), response.body());
-
-        return response;
+    private static List<Header> withContentType(List<Header> baseHeaders, String contentType) {
+        boolean alreadySet = baseHeaders != null && baseHeaders.stream()
+                .anyMatch(h -> h.name().equalsIgnoreCase("Content-Type"));
+        if (alreadySet) return baseHeaders;
+        List<Header> result = new ArrayList<>(baseHeaders == null ? List.of() : baseHeaders);
+        result.add(new Header("Content-Type", contentType));
+        return List.copyOf(result);
     }
 
     public <T> HttpCallResponse<T> deserialize(java.net.http.HttpResponse<String> response, Class<T> type) throws Exception {
