@@ -31,7 +31,15 @@ public class HttpSteps {
     private static final Logger log = LoggerFactory.getLogger(HttpSteps.class);
 
     private final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
-    private final HttpClientWrapper http = new HttpClientWrapper();
+    private final HttpClientWrapper http;
+
+    public HttpSteps() {
+        this.http = new HttpClientWrapper();
+    }
+
+    public HttpSteps(HttpClientWrapper http) {
+        this.http = http;
+    }
 
     public <T> java.net.http.HttpResponse<String> call(HttpCallRequest<T> request, PipelineContext ctx) throws Exception {
         String method = request.method();

@@ -4,6 +4,7 @@ import org.modulartestorchestrator.http.model.Header;
 
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -13,12 +14,23 @@ import java.util.List;
 public class HttpClientWrapper {
 
     private final HttpClient client = HttpClient.newHttpClient();
+    private final Duration timeout;
+
+    public HttpClientWrapper() {
+        this.timeout = null;
+    }
+
+    public HttpClientWrapper(Duration timeout) {
+        this.timeout = timeout;
+    }
 
     public java.net.http.HttpResponse<String> send(String method, String url, String body, List<Header> headers) throws Exception {
 
         java.net.http.HttpRequest.Builder builder = java.net.http.HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .method(method, java.net.http.HttpRequest.BodyPublishers.ofString(body == null ? "" : body));
+
+        if (timeout != null) builder.timeout(timeout);
 
         if (headers != null) {
             for (Header h : headers) {
@@ -34,6 +46,8 @@ public class HttpClientWrapper {
         java.net.http.HttpRequest.Builder builder = java.net.http.HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .method(method, java.net.http.HttpRequest.BodyPublishers.ofByteArray(body == null ? new byte[0] : body));
+
+        if (timeout != null) builder.timeout(timeout);
 
         if (headers != null) {
             for (Header h : headers) {

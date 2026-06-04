@@ -287,9 +287,10 @@ httpClient.withBearer("other-token")             // new instance, adds/replaces 
 httpClient.withoutHeader("Authorization")         // new instance, removes Authorization
 httpClient.withApiKey("X-Api-Key", "key")         // new instance, adds header
 httpClient.withBaseUrl("http://localhost:8080")   // new instance, sets base URL
+httpClient.withTimeout(Duration.ofSeconds(10))   // new instance, sets per-request timeout
 ```
 
-`withBaseUrl` prepends the host to any request URL that starts with `/`. Absolute URLs are used as-is. All `with*` methods carry the base URL forward — you can chain them in any order:
+`withBaseUrl` prepends the host to any request URL that starts with `/`. Absolute URLs are used as-is. `withTimeout` applies `HttpRequest.Builder.timeout()` to every call — if the server does not respond in time, `HttpTimeoutException` is thrown. All `with*` methods carry both settings forward — you can chain them in any order:
 
 ```java
 HttpTestClient client = new HttpTestClient()

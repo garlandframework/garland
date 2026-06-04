@@ -56,27 +56,32 @@ public class HttpTestClient {
     private static final Logger log = LoggerFactory.getLogger("HTTP");
     static final String BEARER_CTX_KEY = "http.bearer";
 
-    private final HttpSteps httpSteps       = new HttpSteps();
+    private final HttpSteps httpSteps;
     private final HttpCheckSteps httpCheck  = new HttpCheckSteps();
     private final CheckSteps check          = new CheckSteps();
     private final RetryConfig retryConfig;
     private final Map<String, String> defaultHeaders;
     private final String baseUrl;
+    private final Duration timeout;
 
     public HttpTestClient(RetryConfig retryConfig) {
         this.retryConfig = retryConfig;
         this.defaultHeaders = Map.of();
         this.baseUrl = null;
+        this.timeout = null;
+        this.httpSteps = new HttpSteps();
     }
 
     public HttpTestClient() {
         this(RetryConfig.attempts(1));
     }
 
-    private HttpTestClient(RetryConfig retryConfig, Map<String, String> defaultHeaders, String baseUrl) {
+    private HttpTestClient(RetryConfig retryConfig, Map<String, String> defaultHeaders, String baseUrl, Duration timeout) {
         this.retryConfig = retryConfig;
         this.defaultHeaders = Map.copyOf(defaultHeaders);
         this.baseUrl = baseUrl;
+        this.timeout = timeout;
+        this.httpSteps = timeout != null ? new HttpSteps(new HttpClientWrapper(timeout)) : new HttpSteps();
     }
 
     /**
@@ -86,7 +91,7 @@ public class HttpTestClient {
     public HttpTestClient withHeader(String name, String value) {
         Map<String, String> updated = new HashMap<>(defaultHeaders);
         updated.put(name, value);
-        return new HttpTestClient(retryConfig, updated, baseUrl);
+        return new HttpTestClient(retryConfig, updated, baseUrl, timeout);
     }
 
     /**
@@ -101,7 +106,7 @@ public class HttpTestClient {
     public HttpTestClient withoutHeader(String name) {
         Map<String, String> updated = new HashMap<>(defaultHeaders);
         updated.remove(name);
-        return new HttpTestClient(retryConfig, updated, baseUrl);
+        return new HttpTestClient(retryConfig, updated, baseUrl, timeout);
     }
 
     /** Returns a new client with {@code Authorization: Bearer <token>} as a default header. */
@@ -132,7 +137,23 @@ public class HttpTestClient {
      * }</pre>
      */
     public HttpTestClient withBaseUrl(String baseUrl) {
-        return new HttpTestClient(retryConfig, defaultHeaders, baseUrl);
+        return new HttpTestClient(retryConfig, defaultHeaders, baseUrl, timeout);
+    }
+
+    /**
+     * Returns a new client that applies {@code timeout} to every HTTP request. If the server
+     * does not respond within the timeout, the call throws {@link java.net.http.HttpTimeoutException}
+     * wrapped in a {@link RuntimeException}.
+     *
+     * <p>Use in suites that run against slow or unreliable environments to prevent a single
+     * hanging call from blocking the entire test run.
+     *
+     * <pre>{@code
+     * HttpTestClient client = httpClient.withTimeout(Duration.ofSeconds(10));
+     * }</pre>
+     */
+    public HttpTestClient withTimeout(Duration timeout) {
+        return new HttpTestClient(retryConfig, defaultHeaders, baseUrl, timeout);
     }
 
     /**
