@@ -62,7 +62,7 @@ public class PostgresTestClient {
      * <p>Use {@code Duration.ofNanos(1000)} (1 µs) to absorb PostgreSQL's microsecond truncation
      * globally instead of annotating every assertion site:
      * <pre>
-     * dbClient = new PostgresTestClient(postgres, retryConfig)
+     * postgresClient = new PostgresTestClient(postgres, retryConfig)
      *         .withTemporalTolerance(Duration.ofNanos(1000));
      * </pre>
      */

@@ -85,7 +85,7 @@ public final class Verify {
      * Pipeline.given(request)
      *         .then(httpClient.makeCall(201, UserDto.class))
      *         .then(Verify.allOf(
-     *                 dbClient.findById(),
+     *                 postgresClient.findById(),
      *                 kafkaClient.consumeMatching(UserCreatedEvent.class),
      *                 mongoClient.findById()
      *         ))

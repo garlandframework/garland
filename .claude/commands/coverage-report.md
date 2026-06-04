@@ -38,16 +38,16 @@ Read every test class under the tests module. For each class determine:
 **Method-level signals — read every `@Test` method name and body:**
 
 For endpoint tests, determine per endpoint:
-- **Happy path** — method calls `httpClient.makeCall(2xx)` AND chains to `dbClient` or `mongoClient`
+- **Happy path** — method calls `httpClient.makeCall(2xx)` AND chains to `postgresClient` or `mongoClient`
 - **Validation (400)** — method name contains `returns400`, `blank`, `null`, `tooLong`, or calls `makeCall(400)`
 - **Not-found (404)** — method name contains `notFound` or `returns404`, or calls `makeCall(404)`
 - **Conflict (409)** — method name contains `conflict` or `returns409`, or calls `makeCall(409)`
 
 For chain tests, determine:
-- **HTTP→DB** — test chains `httpClient` → `dbClient`
-- **HTTP→DB→Kafka** — test chains `httpClient` → `dbClient` → `kafkaClient`
+- **HTTP→DB** — test chains `httpClient` → `postgresClient`
+- **HTTP→DB→Kafka** — test chains `httpClient` → `postgresClient` → `kafkaClient`
 - **Kafka→MongoDB** — test publishes via `kafkaClient.publish()` → asserts via `mongoClient`
-- **Full chain** — test chains all four clients: `httpClient` → `dbClient` → `kafkaClient` → `mongoClient`
+- **Full chain** — test chains all four clients: `httpClient` → `postgresClient` → `kafkaClient` → `mongoClient`
 
 For flow tests, determine which operation sequences are covered from method names:
 - `createThenGet`, `createThenUpdate`, `createThenDelete`, `fullCrudLifecycle`, etc.

@@ -23,7 +23,7 @@ UserDto created = Pipeline.given(request)
 Pipeline.given(request)
         .then(httpClient.makeCall(201, UserDto.class))
         .then(UserTestMapper.toEntity())
-        .then(dbClient.findById())
+        .then(postgresClient.findById())
         .execute();
 ```
 
@@ -41,7 +41,7 @@ Use `Verify.allOf()` whenever one HTTP response triggers multiple independent si
 Pipeline.given(TestUserRequests.createUser())
         .then(httpClient.makeCall(201, UserDto.class))
         .then(Verify.allOf(
-                UserTestMapper.toEntity().andThen(dbClient.findById()),
+                UserTestMapper.toEntity().andThen(postgresClient.findById()),
                 UserTestMapper.toCreatedEvent().andThen(kafkaClient.consumeMatching(UserCreatedEvent.class)),
                 UserTestMapper.dtoToCreatedProjectionDoc().andThen(mongoClient.findById())
         ))
@@ -77,7 +77,7 @@ Pipeline.given(TestUserRequests.deleteUser(created.getUuid()))
 // Fan out from created — verify absence in all systems
 Pipeline.given(created)
         .then(Verify.allOf(
-                UserTestMapper.toEntity().andThen(dbClient.notExistsById()),
+                UserTestMapper.toEntity().andThen(postgresClient.notExistsById()),
                 UserTestMapper.toDeletedEvent().andThen(kafkaClient.consumeMatching(UserDeletedEvent.class)),
                 UserTestMapper.dtoToCreatedProjectionDoc().andThen(mongoClient.notExistsById())
         ))
@@ -168,20 +168,20 @@ Rules:
 
 ```java
 // Asserts record/document exists AND matches expected — throws if absent or mismatched
-dbClient.findById()
+postgresClient.findById()
 mongoClient.findById()
 mongoClient.findById(Duration)              // override default tolerance for this call
 
 // Asserts exactly one match — throws if 0 or >1 results
-dbClient.findByFields()
+postgresClient.findByFields()
 mongoClient.findByFields()
 
 // Returns the count of matching records/documents
-dbClient.countByFields()
+postgresClient.countByFields()
 mongoClient.countByFields()
 
 // Asserts absence — throws if present
-dbClient.notExistsById()
+postgresClient.notExistsById()
 mongoClient.notExistsById()
 ```
 
@@ -210,7 +210,7 @@ Two separate situations require temporal tolerance:
 Each storage technology truncates `Instant` precision: MongoDB to milliseconds, PostgreSQL to microseconds. Rather than annotating every assertion site, set a client-level default in `BaseTest` via `withTemporalTolerance()`:
 
 ```java
-dbClient    = new PostgresTestClient(postgres, retryConfig)
+postgresClient    = new PostgresTestClient(postgres, retryConfig)
         .withTemporalTolerance(Duration.ofNanos(1000)); // absorbs Postgres µs truncation
 
 mongoClient = new MongoTestClient(mongo, retryConfig)
@@ -317,7 +317,7 @@ The login endpoint is excluded from token validation — using `httpClient` (whi
 
 ## 9. Anti-patterns
 
-**Do not chain DB + Kafka sequentially when they are independent.** The old pattern `→ toEntity() → dbClient.findById() → entityToEvent() → kafkaClient.consumeMatching()` forces sequential execution and hides the fact that these are parallel side-effects. Use `Verify.allOf()` instead.
+**Do not chain DB + Kafka sequentially when they are independent.** The old pattern `→ toEntity() → postgresClient.findById() → entityToEvent() → kafkaClient.consumeMatching()` forces sequential execution and hides the fact that these are parallel side-effects. Use `Verify.allOf()` instead.
 
 **Do not use separate `Pipeline.given()` blocks for post-action assertions.** Three separate pipelines for DB / Kafka / Mongo checks after a create is harder to read and fails fast on the first failure. `Verify.allOf()` collects all failures in one report.
 

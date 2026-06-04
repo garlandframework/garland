@@ -39,7 +39,7 @@ Re-running `/gen-project-commands` overwrites all existing domain directories an
 Before generating anything, read the following. Do not guess — read the actual files.
 
 ### Test infrastructure
-- `BaseTest` — what clients are declared (`httpClient`, `dbClient`, `kafkaClient`, `mongoClient`, and any domain-specific Kafka clients like `orderKafkaClient`), what their types are, which Kafka topics each client is configured with (first topic determines where `publish()` sends)
+- `BaseTest` — what clients are declared (`httpClient`, `postgresClient`, `kafkaClient`, `mongoClient`, and any domain-specific Kafka clients like `orderKafkaClient`), what their types are, which Kafka topics each client is configured with (first topic determines where `publish()` sends)
 - Request factory classes (`TestXxxRequests`) — every method signature, URL, HTTP method, expected status
 - Test data factory classes (`TestXxx`, `TestAddresses`, `TestCars`, etc.) — every static method and builder pattern
 - Test mapper class (`XxxTestMapper`) — every method and its direction (e.g. `UserDto → UserEntity`, `UserEntity → UserCreatedEvent`)
