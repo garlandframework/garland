@@ -119,6 +119,11 @@ public class HttpTestClient {
         return withHeader(headerName, key);
     }
 
+    /** Returns a new client with {@code Cookie: name=value} added to the default headers. */
+    public HttpTestClient withCookie(String name, String value) {
+        return withHeader("Cookie", name + "=" + value);
+    }
+
     /**
      * Returns a new client that prepends {@code baseUrl} to any request URL that starts
      * with {@code /}. Absolute URLs (starting with {@code http}) are used as-is.
