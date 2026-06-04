@@ -164,6 +164,44 @@ Rules:
 
 ---
 
+## 14. Request factory pattern
+
+`HttpCallRequest` construction always lives in `TestXxxRequests` — never inline in the test body. The test body calls the factory and adds only what varies per test:
+
+```java
+// Correct — factory owns the URL, method, and base payload
+Pipeline.given(TestUserRequests.createUser())
+        .then(httpClient.makeCall(201, UserDto.class))
+        .execute();
+
+// Correct — factory produces the base request; test injects the override
+Pipeline.given(TestUserRequests.getAllUsers().withQueryParam("page", "-1"))
+        .then(httpClient.makeCall(400, ErrorDto.class))
+        .execute();
+
+// Wrong — URL, method, headers all inline; duplicates every time the endpoint is tested
+Pipeline.given(new HttpCallRequest<>(BASE_URL + "/api/users", "POST", List.of(), dto))
+        .then(httpClient.makeCall(201, UserDto.class))
+        .execute();
+```
+
+**One factory method per endpoint.** Factory methods accept parameters for fields tests legitimately vary (`createUser(UserDto dto)`, `exportUser(UUID id)`).
+
+**Non-JSON bodies also belong in factories.** Even form-encoded and multipart requests get factory methods — never construct them inline in tests:
+
+```java
+// FormBody factory
+TestAuthRequests.oauthToken()                                              // → POST /oauth/token
+
+// MultipartBody factories
+TestFileRequests.uploadFromDisk("description", diskFile, "image/jpeg")    // → POST /api/files
+TestFileRequests.uploadFromBytes("description", data, "hello.txt", "text/plain")
+```
+
+**Exception — `*Examples` classes only.** Inline `HttpCallRequest` construction is intentional in example/demo test classes when the construction itself demonstrates a framework feature (raw String body, relative URL for `withBaseUrl`, custom Content-Type). These are documentation, not production tests.
+
+---
+
 ## 6. DB and MongoDB assertion rules
 
 ```java

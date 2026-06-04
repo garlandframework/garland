@@ -143,31 +143,55 @@ The rules below are specific to this project.
 
 <!-- Omit this section entirely if no endpoint in this domain accepts form or multipart bodies -->
 
-<!-- from analysis: for each form/multipart endpoint, show the factory pattern:
+<!-- from analysis: for each form/multipart endpoint, add factory methods to TestXxxRequests
+     and document them here. Never show inline new HttpCallRequest<> for non-JSON bodies —
+     tests must call the factory, not construct the request inline.
 
 ### FormBody (application/x-www-form-urlencoded)
-Use for endpoints that consume `application/x-www-form-urlencoded` (OAuth2 token endpoints, legacy form APIs):
+Add a factory method to TestXxxRequests (or TestAuthRequests for token endpoints):
 
-    new HttpCallRequest<>(Connections.AUTH_URL + "/oauth/token", "POST", List.of(),
-            new FormBody()
-                    .field("grant_type", "client_credentials")
-                    .field("client_id",  "my-client"))
+    // in TestAuthRequests:
+    public static HttpCallRequest<FormBody> oauthToken() {
+        return new HttpCallRequest<>(BASE_URL + "/oauth/token", "POST", List.of(),
+                new FormBody()
+                        .field("grant_type", "client_credentials")
+                        .field("client_id",  Connections.ADMIN_USERNAME)
+                        .field("client_secret", Connections.ADMIN_PASSWORD));
+    }
+
+    // in tests:
+    Pipeline.given(TestAuthRequests.oauthToken())
+            .then(new HttpTestClient().makeCall(200, TokenDto.class))
+            .execute();
 
 ### MultipartBody (multipart/form-data)
-Use for endpoints that consume `multipart/form-data` (file uploads):
+Add factory methods to TestXxxRequests (or a dedicated TestFileRequests):
 
-    new HttpCallRequest<>(Connections.FILES_URL + "/upload", "POST", List.of(),
-            new MultipartBody()
-                    .field("description", "profile photo")
-                    .file("photo", Path.of("/tmp/photo.jpg"), "image/jpeg"))
-    // or from in-memory bytes:
-            .file("content", data, "hello.txt", "text/plain")
+    // in TestFileRequests:
+    public static HttpCallRequest<MultipartBody> uploadFromDisk(
+            String description, Path file, String contentType) throws IOException {
+        return new HttpCallRequest<>(URL, "POST", List.of(),
+                new MultipartBody().field("description", description)
+                        .file("file", file, contentType));   // "file" must match @RequestParam name
+    }
+
+    public static HttpCallRequest<MultipartBody> uploadFromBytes(
+            String description, byte[] data, String filename, String contentType) {
+        return new HttpCallRequest<>(URL, "POST", List.of(),
+                new MultipartBody().field("description", description)
+                        .file("file", data, filename, contentType));
+    }
+
+    // in tests:
+    Pipeline.given(TestFileRequests.uploadFromDisk("label", path, "image/jpeg"))
+            .then(httpClient.makeCall(201, Void.class))
+            .execute();
 
 ### Raw string body
-Use when the body is already serialized (JSON fixture, XML, plain text):
+Inline HttpCallRequest is acceptable only when the raw body is what the test parameterises
+(fixture replay, adversarial strings). Content-Type defaults to application/json; add a header to override:
 
     new HttpCallRequest<>(url, "POST", List.of(), "{\"name\":\"Alice\"}")
-    // non-JSON: add Content-Type header
     new HttpCallRequest<>(url, "POST",
             List.of(new Header("Content-Type", "application/xml")), "<root/>")
 -->
