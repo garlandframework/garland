@@ -41,6 +41,23 @@ public class HttpClientWrapper {
         return client.send(builder.build(), java.net.http.HttpResponse.BodyHandlers.ofString());
     }
 
+    public java.net.http.HttpResponse<byte[]> sendForBytes(String method, String url, String body, List<Header> headers) throws Exception {
+
+        java.net.http.HttpRequest.Builder builder = java.net.http.HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .method(method, java.net.http.HttpRequest.BodyPublishers.ofString(body == null ? "" : body));
+
+        if (timeout != null) builder.timeout(timeout);
+
+        if (headers != null) {
+            for (Header h : headers) {
+                builder.header(h.name(), h.value());
+            }
+        }
+
+        return client.send(builder.build(), java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+    }
+
     public java.net.http.HttpResponse<String> sendBytes(String method, String url, byte[] body, List<Header> headers) throws Exception {
 
         java.net.http.HttpRequest.Builder builder = java.net.http.HttpRequest.newBuilder()

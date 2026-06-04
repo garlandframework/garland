@@ -78,6 +78,31 @@ public class HttpSteps {
         }
     }
 
+    public <T> java.net.http.HttpResponse<byte[]> callForBytes(HttpCallRequest<T> request, PipelineContext ctx) throws Exception {
+        String method = request.method();
+        String url = buildUrl(request.url(), request.queryParams());
+        T dto = request.dto();
+        List<Header> baseHeaders = request.headers();
+
+        String body;
+        List<Header> headers;
+        if (dto instanceof String rawBody) {
+            body = rawBody;
+            headers = withContentType(baseHeaders, "application/json");
+        } else if (dto != null) {
+            body = mapper.writeValueAsString(dto);
+            headers = withContentType(baseHeaders, "application/json");
+        } else {
+            body = null;
+            headers = baseHeaders == null ? List.of() : baseHeaders;
+        }
+
+        log.info(HttpStepsLogTemplates.REQUEST_CURL, CurlBuilder.from(method, url, headers, body));
+        java.net.http.HttpResponse<byte[]> response = http.sendForBytes(method, url, body, headers);
+        log.info(HttpStepsLogTemplates.RESPONSE_RECEIVED, response.statusCode(), "<binary: " + response.body().length + " bytes>");
+        return response;
+    }
+
     private static List<Header> withContentType(List<Header> baseHeaders, String contentType) {
         boolean alreadySet = baseHeaders != null && baseHeaders.stream()
                 .anyMatch(h -> h.name().equalsIgnoreCase("Content-Type"));

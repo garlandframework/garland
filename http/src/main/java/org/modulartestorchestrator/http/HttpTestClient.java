@@ -14,6 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -304,6 +306,39 @@ public class HttpTestClient {
             log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
             return Retry.<HttpCallRequest<T>, R>of(buildCallWithStatusCheck(expectedStatus, typeRef), retryConfig)
                     .apply(merged, outerCtx);
+        };
+    }
+
+    /**
+     * Downloads the response body to {@code destination} and returns the path.
+     * Uses {@code BodyHandlers.ofByteArray()} — binary content is not corrupted by charset
+     * conversion. Parent directories of {@code destination} are created if absent.
+     *
+     * <p>Asserts the response status equals {@code expectedStatus}; throws
+     * {@link AssertionError} if it does not.
+     *
+     * <pre>{@code
+     * Path file = Pipeline.given(TestFileRequests.downloadReport("123"))
+     *         .then(httpClient.downloadFile(200, Path.of("/tmp/report.pdf")))
+     *         .execute();
+     * }</pre>
+     */
+    public <T> Step<HttpCallRequest<T>, Path> downloadFile(int expectedStatus, Path destination) {
+        return (request, ctx) -> {
+            HttpCallRequest<T> merged = mergeHeaders(request, ctx);
+            log.info(HttpTestClientLogTemplates.CALL, merged.method(), merged.url());
+            java.net.http.HttpResponse<byte[]> response = httpSteps.callForBytes(merged, ctx);
+            if (response.statusCode() != expectedStatus) {
+                throw new AssertionError("Expected status " + expectedStatus
+                        + " but got " + response.statusCode()
+                        + " downloading " + merged.url());
+            }
+            if (destination.getParent() != null) {
+                Files.createDirectories(destination.getParent());
+            }
+            Files.write(destination, response.body());
+            log.info(HttpTestClientLogTemplates.VERIFIED);
+            return destination;
         };
     }
 
