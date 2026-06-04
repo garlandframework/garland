@@ -288,6 +288,7 @@ httpClient.withoutHeader("Authorization")         // new instance, removes Autho
 httpClient.withApiKey("X-Api-Key", "key")         // new instance, adds header
 httpClient.withBaseUrl("http://localhost:8080")   // new instance, sets base URL
 httpClient.withTimeout(Duration.ofSeconds(10))   // new instance, sets per-request timeout
+httpClient.withCookie("session", "abc123")        // new instance, adds Cookie: session=abc123
 ```
 
 `withBaseUrl` prepends the host to any request URL that starts with `/`. Absolute URLs are used as-is. `withTimeout` applies `HttpRequest.Builder.timeout()` to every call — if the server does not respond in time, `HttpTimeoutException` is thrown. All `with*` methods carry both settings forward — you can chain them in any order:
@@ -340,22 +341,24 @@ Pipeline.given(TestUserRequests.getUsers().withQueryParam("page", "0"))
         .execute();
 
 // invalid value — server rejects with 400
+// NOTE: @RequestParam constraint violations (ConstraintViolationException) return
+//   {status:400, message:"getAll.page: must be >= 0"} → deserialise as ErrorDto, not ValidationErrorDto
 Pipeline.given(TestUserRequests.getUsers().withQueryParam("page", "-1"))
-        .then(httpClient.makeCall(400, ValidationErrorDto.class))
-        .then(Verify.matching(ValidationErrorDto.forField("page")))
+        .then(httpClient.makeCall(400, ErrorDto.class))
         .execute();
 
 // malformed value — cannot be parsed as expected type
 Pipeline.given(TestUserRequests.getUsers().withQueryParam("page", "abc"))
         .then(httpClient.makeCall(400, ErrorDto.class))
         .execute();
-
-// too-long value
-Pipeline.given(TestUserRequests.searchUsers().withQueryParam("name", "a".repeat(256)))
-        .then(httpClient.makeCall(400, ValidationErrorDto.class))
-        .then(Verify.matching(ValidationErrorDto.forField("name")))
-        .execute();
 ```
+
+**Two distinct 400 shapes** — never mix them up:
+
+| Source | Exception | Response shape | Deserialise as |
+|---|---|---|---|
+| `@Valid @RequestBody` | `MethodArgumentNotValidException` | `{status, errors:[{field,message}]}` | `ValidationErrorDto` |
+| `@Validated @RequestParam @Min/@Max` | `ConstraintViolationException` | `{status, message:"method.param: ..."}` | `ErrorDto` |
 
 ### withQueryParams — multiple parameters (factory methods / happy path)
 
@@ -400,13 +403,13 @@ Typical use: OAuth2 token endpoints, legacy form APIs.
 
 ```java
 new HttpCallRequest<>(
-        Connections.AUTH_URL + "/oauth/token",
+        Connections.USER_SERVICE_URL + "/oauth/token",
         "POST",
         List.of(),
         new FormBody()
-                .field("grant_type", "client_credentials")
-                .field("client_id",  "my-client")
-                .field("client_secret", "secret"))
+                .field("grant_type",   "client_credentials")
+                .field("client_id",    Connections.ADMIN_USERNAME)
+                .field("client_secret", Connections.ADMIN_PASSWORD))
 ```
 
 `FormBody` is immutable — each `.field()` call returns a new instance. Chain as many fields as needed.
@@ -418,20 +421,22 @@ Pass a `MultipartBody` as the `dto`. The framework builds the multipart byte str
 Typical use: file upload endpoints.
 
 ```java
-// file from disk
+// file from disk — the part name ("file") must match the server's @RequestParam name
 new HttpCallRequest<>(
-        Connections.FILES_URL + "/upload",
+        Connections.USER_SERVICE_URL + "/api/files",
         "POST",
         List.of(),
         new MultipartBody()
                 .field("description", "profile photo")
-                .file("photo", Path.of("/tmp/photo.jpg"), "image/jpeg"))
+                .file("file", Path.of("/tmp/photo.jpg"), "image/jpeg"))
 
 // file from in-memory bytes (no file on disk)
 new MultipartBody()
-        .field("label", "greeting")
-        .file("content", "hello world".getBytes(), "hello.txt", "text/plain")
+        .field("description", "greeting")
+        .file("file", "hello world".getBytes(), "hello.txt", "text/plain")
 ```
+
+**The part name passed to `.file()` must match the `@RequestParam` name on the server.** Getting this wrong produces a 400 with no helpful error. Check the controller signature before writing the test.
 
 `MultipartBody` is also immutable — each `.field()` / `.file()` call returns a new instance.
 
