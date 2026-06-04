@@ -89,10 +89,17 @@ public class HttpSteps {
 
     public <T> HttpCallResponse<T> deserialize(java.net.http.HttpResponse<String> response, Class<T> type) throws Exception {
         String body = response.body();
-        T dto = (type == Void.class || body == null || body.isBlank())
-                ? null
-                : mapper.readValue(body, type);
-        return new HttpCallResponse<>(response.statusCode(), response.headers().map(), dto);
+        if (type == Void.class || body == null || body.isBlank()) {
+            return new HttpCallResponse<>(response.statusCode(), response.headers().map(), null);
+        }
+        try {
+            T dto = mapper.readValue(body, type);
+            return new HttpCallResponse<>(response.statusCode(), response.headers().map(), dto);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new AssertionError(
+                    "Failed to deserialize response body as " + type.getSimpleName()
+                    + " (status " + response.statusCode() + ").\nRaw body:\n" + body, e);
+        }
     }
 
     public <T> Step<java.net.http.HttpResponse<String>, HttpCallResponse<T>> deserialize(Class<T> type) {
@@ -101,10 +108,17 @@ public class HttpSteps {
 
     public <T> HttpCallResponse<T> deserialize(java.net.http.HttpResponse<String> response, TypeReference<T> typeRef) throws Exception {
         String body = response.body();
-        T dto = (body == null || body.isBlank())
-                ? null
-                : mapper.readValue(body, typeRef);
-        return new HttpCallResponse<>(response.statusCode(), response.headers().map(), dto);
+        if (body == null || body.isBlank()) {
+            return new HttpCallResponse<>(response.statusCode(), response.headers().map(), null);
+        }
+        try {
+            T dto = mapper.readValue(body, typeRef);
+            return new HttpCallResponse<>(response.statusCode(), response.headers().map(), dto);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new AssertionError(
+                    "Failed to deserialize response body as " + typeRef.getType().getTypeName()
+                    + " (status " + response.statusCode() + ").\nRaw body:\n" + body, e);
+        }
     }
 
     public static <T> Step<HttpCallResponse<T>, T> extractDto() {
