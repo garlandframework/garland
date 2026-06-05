@@ -84,6 +84,24 @@ Pipeline.given(created)
         .execute();
 ```
 
+**Other Verify steps:**
+
+```java
+// Assert response body matches expected (null fields in expected are skipped)
+.then(Verify.matching(expectedDto))
+
+// Assert list contains all expected elements (may contain others)
+.then(Verify.containsAll(List.of(userA, userB)))
+
+// Assert list does not contain any of the given elements
+.then(Verify.doesNotContain(List.of(deletedUser)))
+
+// Strict equality — all fields including nulls must match
+.then(Verify.equalTo(expectedDto))
+```
+
+`matching` and `containsAll` / `doesNotContain` all use recursive field comparison and ignore collection order. The difference between `matching` and `equalTo` is that `matching` skips null fields in the expected object; `equalTo` does not.
+
 ---
 
 ## 3. Step.lift and mapper bridges
@@ -512,7 +530,7 @@ new HttpCallRequest<>(url, "POST",
 
 **Do not assert timestamps without tolerance.** An assertion on `Instant` without a tolerance is fragile — it will fail due to storage truncation or clock precision. Set default tolerances via `withTemporalTolerance()` in `BaseTest` so every `findById()` and `consumeMatching()` call inherits them. Use the explicit `Duration` overloads only for SLA-style assertions on service-generated timestamps.
 
-**Do not use raw `assertThat` for values that come out of pipelines.** Keep assertions inside the pipeline using `Verify.matching`, `Verify.equalTo`, `Verify.containsAll`. Use `assertThat` only for assertions on data that lives entirely outside any pipeline (e.g. the `doesNotContain` list check after `Pipeline.execute()`).
+**Do not use raw `assertThat` for values that come out of pipelines.** Keep assertions inside the pipeline using `Verify.matching`, `Verify.equalTo`, `Verify.containsAll`, `Verify.doesNotContain`. Raw `assertThat` is reserved for data that never passes through any pipeline step.
 
 **Do not use `Step.lift(INSTANCE::overloadedMethod)`.** If the mapper method has multiple overloads, type inference fails. Use the pre-defined static bridge on the mapper interface instead.
 

@@ -109,6 +109,22 @@ public class CheckSteps {
         };
     }
 
+    public <T> Step<List<T>, List<T>> doesNotContain(Collection<T> unexpected) {
+        return (actual, ctx) -> {
+            log.info(CheckLogTemplates.CHECKING, toJson(unexpected), toJson(actual));
+            RecursiveComparisonConfiguration config = RecursiveComparisonConfiguration.builder()
+                    .withIgnoreCollectionOrder(true)
+                    .withIgnoreAllExpectedNullFields(true)
+                    .withComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+                    .build();
+            assertThat(actual)
+                    .usingRecursiveFieldByFieldElementComparator(config)
+                    .doesNotContainAnyElementsOf(unexpected);
+            log.info(CheckLogTemplates.PASSED);
+            return actual;
+        };
+    }
+
     private static int withinTolerance(Instant a, Instant b, long toleranceNanos) {
         long diffNanos = Math.abs(Duration.between(a, b).toNanos());
         return diffNanos <= toleranceNanos ? 0 : a.compareTo(b);

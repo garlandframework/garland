@@ -72,6 +72,14 @@ public final class Verify {
     }
 
     /**
+     * Asserts that the actual list does not contain any of the unexpected elements.
+     * Uses recursive field comparison; null fields in unexpected elements are ignored.
+     */
+    public static <T> Step<List<T>, List<T>> doesNotContain(Collection<T> unexpected) {
+        return CHECK.doesNotContain(unexpected);
+    }
+
+    /**
      * Runs <em>all</em> branches against the same input, collects every failure, then
      * throws a single combined {@link AssertionError}. Unlike chaining multiple
      * {@link Pipeline#then} calls (which stop at the first failure), {@code allOf}
