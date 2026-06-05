@@ -198,7 +198,7 @@ Pipeline.given(TestUserRequests.getAllUsers().withQueryParam("page", "-1"))
         .execute();
 
 // Wrong — URL, method, headers all inline; duplicates every time the endpoint is tested
-Pipeline.given(new HttpCallRequest<>(BASE_URL + "/api/users", "POST", List.of(), dto))
+Pipeline.given(HttpCallRequest.post(BASE_URL + "/api/users", dto))
         .then(httpClient.makeCall(201, UserDto.class))
         .execute();
 ```
@@ -423,7 +423,7 @@ Use in request factory methods when a request naturally carries several paramete
 ```java
 // in a factory method
 public static HttpCallRequest<Void> getUsers(int page, int size) {
-    return new HttpCallRequest<>(BASE_URL + "/api/users", "GET", List.of(), null)
+    return HttpCallRequest.get(BASE_URL + "/api/users")
             .withQueryParams(Map.of("page", String.valueOf(page), "size", String.valueOf(size)));
 }
 
@@ -458,10 +458,8 @@ Pass a `FormBody` as the `dto`. The framework encodes all fields as percent-enco
 Typical use: OAuth2 token endpoints, legacy form APIs.
 
 ```java
-new HttpCallRequest<>(
+HttpCallRequest.post(
         Connections.USER_SERVICE_URL + "/oauth/token",
-        "POST",
-        List.of(),
         new FormBody()
                 .field("grant_type",   "client_credentials")
                 .field("client_id",    Connections.ADMIN_USERNAME)
@@ -478,10 +476,8 @@ Typical use: file upload endpoints.
 
 ```java
 // file from disk — the part name ("file") must match the server's @RequestParam name
-new HttpCallRequest<>(
+HttpCallRequest.post(
         Connections.USER_SERVICE_URL + "/api/files",
-        "POST",
-        List.of(),
         new MultipartBody()
                 .field("description", "profile photo")
                 .file("file", Path.of("/tmp/photo.jpg"), "image/jpeg"))
@@ -502,9 +498,9 @@ Pass a `String` as the `dto` to send a pre-serialized body without Jackson touch
 
 ```java
 // pre-built JSON — Content-Type: application/json set automatically
-new HttpCallRequest<>(url, "POST", List.of(), "{\"name\":\"Alice\",\"surname\":\"Smith\"}")
+HttpCallRequest.post(url, "{\"name\":\"Alice\",\"surname\":\"Smith\"}")
 
-// non-JSON body — add Content-Type header to override
+// non-JSON body — add Content-Type header to override (record constructor required)
 new HttpCallRequest<>(url, "POST",
         List.of(new Header("Content-Type", "application/xml")),
         "<user><name>Alice</name></user>")
