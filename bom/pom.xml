@@ -40,6 +40,11 @@
                 <artifactId>mongodb</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.modulartestorchestrator.testng</groupId>
+                <artifactId>testng-support</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
