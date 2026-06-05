@@ -53,4 +53,26 @@ public record HttpCallRequest<T>(String url, String method, List<Header> headers
         updated.putAll(params);
         return new HttpCallRequest<>(url, method, headers, dto, Map.copyOf(updated));
     }
+
+    // --- Static factories ---
+
+    public static HttpCallRequest<Void> get(String url) {
+        return new HttpCallRequest<>(url, "GET", List.of(), null);
+    }
+
+    public static <T> HttpCallRequest<T> post(String url, T body) {
+        return new HttpCallRequest<>(url, "POST", List.of(), body);
+    }
+
+    public static <T> HttpCallRequest<T> put(String url, T body) {
+        return new HttpCallRequest<>(url, "PUT", List.of(), body);
+    }
+
+    public static HttpCallRequest<Void> put(String url) {
+        return new HttpCallRequest<>(url, "PUT", List.of(), null);
+    }
+
+    public static HttpCallRequest<Void> delete(String url) {
+        return new HttpCallRequest<>(url, "DELETE", List.of(), null);
+    }
 }
