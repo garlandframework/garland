@@ -4,12 +4,35 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-
-    <groupId>org.modulartestorchestrator</groupId>
-    <artifactId>testorchestrator</artifactId>
+    <groupId>dev.garlandframework</groupId>
+    <artifactId>garland</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
+    <name>Garland</name>
+    <description>Type-safe pipeline composition for Java integration testing — HTTP, DB, Kafka, MongoDB.</description>
+    <url>https://garlandframework.dev</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Garland Framework</name>
+            <email>garlandframework@gmail.com</email>
+            <url>https://garlandframework.dev</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/garlandframework/garland</url>
+        <connection>scm:git:git://github.com/garlandframework/garland.git</connection>
+        <developerConnection>scm:git:ssh://github.com/garlandframework/garland.git</developerConnection>
+    </scm>
 
     <modules>
         <module>core</module>
@@ -25,6 +48,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -55,6 +79,11 @@
                     <artifactId>maven-gpg-plugin</artifactId>
                     <version>3.2.4</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.sonatype.central</groupId>
+                    <artifactId>central-publishing-maven-plugin</artifactId>
+                    <version>0.5.0</version>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
@@ -70,7 +99,7 @@
     </build>
 
     <!-- Activate with -Prelease to attach sources, javadoc, and GPG signatures.
-         Required for Maven Central publication via Sonatype OSSRH. -->
+         Required for Maven Central publication via Sonatype. -->
     <profiles>
         <profile>
             <id>release</id>
@@ -112,6 +141,14 @@
                                 </goals>
                             </execution>
                         </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>

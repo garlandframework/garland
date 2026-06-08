@@ -1,6 +1,6 @@
-# MTO Test Generation Rules
+# Garland Test Generation Rules
 
-This file is read by LLMs generating tests with the Modular Test Orchestrator framework.
+This file is read by LLMs generating tests with the Garland framework.
 It contains rules that are non-obvious and that an LLM would get wrong without explicit guidance.
 Project-specific rules (factories, mappers, client names) live in the gen-command files.
 

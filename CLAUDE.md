@@ -21,14 +21,14 @@ mvn test
 mvn test -pl core -Dtest=ClassName
 
 # Run Main directly (after build)
-mvn exec:java -pl core -Dexec.mainClass=org.modulartestorchestrator.Main
+mvn exec:java -pl core -Dexec.mainClass=dev.garlandframework.Main
 ```
 
 Java 21 is required. No external runtime dependencies beyond Maven.
 
 ## Architecture
 
-This is a Maven multi-module project (`groupId: org.modulartestorchestrator`). Currently one module: `core`.
+This is a Maven multi-module project (`groupId: dev.garlandframework`). Currently one module: `core`.
 
 ### Core abstraction: Pipeline
 

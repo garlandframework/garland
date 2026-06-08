@@ -5,44 +5,44 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.modulartestorchestrator</groupId>
-        <artifactId>testorchestrator</artifactId>
+        <groupId>dev.garlandframework</groupId>
+        <artifactId>garland</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>testorchestrator-bom</artifactId>
+    <artifactId>garland-bom</artifactId>
     <packaging>pom</packaging>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>org.modulartestorchestrator</groupId>
-                <artifactId>core</artifactId>
+                <groupId>dev.garlandframework</groupId>
+                <artifactId>garland-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.modulartestorchestrator</groupId>
-                <artifactId>http</artifactId>
+                <groupId>dev.garlandframework</groupId>
+                <artifactId>garland-http</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.modulartestorchestrator</groupId>
-                <artifactId>postgres</artifactId>
+                <groupId>dev.garlandframework</groupId>
+                <artifactId>garland-postgres</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.modulartestorchestrator</groupId>
-                <artifactId>kafka</artifactId>
+                <groupId>dev.garlandframework</groupId>
+                <artifactId>garland-kafka</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.modulartestorchestrator</groupId>
-                <artifactId>mongodb</artifactId>
+                <groupId>dev.garlandframework</groupId>
+                <artifactId>garland-mongodb</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.modulartestorchestrator.testng</groupId>
-                <artifactId>testng-support</artifactId>
+                <groupId>dev.garlandframework</groupId>
+                <artifactId>garland-testng</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

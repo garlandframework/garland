@@ -1,6 +1,6 @@
 # Generate Project Commands
 
-Analyse this project and generate MTO test generation command files tailored to it.
+Analyse this project and generate Garland test generation command files tailored to it.
 The output replaces manual authoring of gen commands — every class name, factory method, field constraint, and import must reflect the actual project, not a template.
 
 **Usage:** `/gen-project-commands`
@@ -120,7 +120,7 @@ Generate or extend a TestNG endpoint test class for this project.
 Examples:
 <!-- from analysis: 2-3 examples using real class names from this project -->
 
-Universal framework rules are in `llm.md` in the MTO repo root.
+Universal framework rules are in `llm.md` in the Garland repo root.
 The rules below are specific to this project.
 
 ---
@@ -259,7 +259,7 @@ Flow tests verify state transitions and consistency across a sequence of endpoin
 Examples:
 <!-- from analysis: 2-3 examples using real domain name -->
 
-Universal framework rules are in `llm.md` in the MTO repo root.
+Universal framework rules are in `llm.md` in the Garland repo root.
 The rules below are specific to this project.
 
 ---
@@ -314,7 +314,7 @@ Component tests verify a vertical slice from a specific entry point without requ
 Examples:
 <!-- from analysis: 2-3 examples using real slice names -->
 
-Universal framework rules are in `llm.md` in the MTO repo root.
+Universal framework rules are in `llm.md` in the Garland repo root.
 The rules below are specific to this project.
 
 ---
@@ -393,7 +393,7 @@ E2e tests verify the full cross-system chain across all infrastructure systems.
 Examples:
 <!-- from analysis: 2-3 examples using real domain name -->
 
-Universal framework rules are in `llm.md` in the MTO repo root.
+Universal framework rules are in `llm.md` in the Garland repo root.
 The rules below are specific to this project.
 
 ---
@@ -472,4 +472,4 @@ After writing all files, confirm:
 - Cross-domain sections appear only where a real dependency was detected — not speculatively
 - Cross-domain factory methods referenced exist in the project
 - No placeholder text remains in any file
-- All files reference `llm.md` in the MTO repo root for universal framework rules
+- All files reference `llm.md` in the Garland repo root for universal framework rules

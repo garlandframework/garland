@@ -1,9 +1,100 @@
-# Modular Test Orchestrator
+# Garland
 
-A Java library for writing integration tests as composable, type-safe pipelines. Each test step is a function `(I input, PipelineContext ctx) -> O`; steps chain together with compile-time type enforcement.
+A Java framework for writing integration tests as composable, type-safe pipelines.
 
-Modules: `core`, `http`, `postgres`, `kafka`, `mongodb`.  
-Requires Java 21 and Maven.
+Each test step is a typed function `(I input, PipelineContext ctx) -> O`. Steps chain together with compile-time type enforcement — if the chain doesn't connect, it doesn't compile.
+
+```java
+UserDto expected = TestUsers.defaultUser();
+
+Pipeline.given(TestUserRequests.createUser(expected))
+        .then(httpClient.makeCall(201, UserDto.class))
+        .then(Verify.matching(expected))
+        .then(trackUser())
+        .then(Verify.allOf(
+                UserTestMapper.toEntity().andThen(postgresClient.findByFields()),
+                UserTestMapper.toCreatedEvent().andThen(kafkaClient.consumeMatching(UserCreatedEvent.class)),
+                UserTestMapper.dtoToCreatedProjectionDoc().andThen(mongoClient.findByFields())
+        ))
+        .execute();
+```
+
+**[Demo project](https://github.com/garlandframework/garland-demo)** — a full working example with two Spring Boot microservices, Kafka, Postgres, and MongoDB.
+
+---
+
+## Why Garland
+
+Most integration test suites grow into unmaintainable collections of HTTP utilities, custom assertions, and shared mutable state. Garland replaces that with a single composable primitive.
+
+**Type safety at compile time.** Step chains are generically typed — `Pipeline<I,O>` tracks the output type at each `.then()`. If two steps don't connect, the code doesn't compile. No runtime surprises from passing the wrong object to the wrong assertion.
+
+**One pattern everywhere.** HTTP call, DB lookup, Kafka consume, MongoDB assert — all expressed as `Step<I,O>`. No separate assertion libraries to learn, no ad-hoc helper methods to maintain. A developer who has read one test understands all of them.
+
+**Multi-system failures reported together.** `Verify.allOf()` runs all branches against the same input and collects every failure before throwing. Sequential assertions stop at the first failure and hide the rest. With `allOf`, one test run tells you everything that is broken.
+
+**Built-in retry for async systems.** Every test client accepts a `RetryConfig` that applies automatically to all operations. Testing a Kafka consumer or a read-model projection that is populated asynchronously requires no manual polling loops — the client retries until the expected state appears or the attempt limit is reached. Individual operations can override the default when a tighter or looser tolerance is needed.
+
+**Designed for AI generation.** Garland pipelines are linear, explicit, and structurally uniform — exactly the shape that LLMs generate reliably. No implicit DSL, no fluent builder ambiguity, no magic annotations. Claude can generate a full component test from a description and get it right on the first attempt. The output is also easy to review — one glance at the chain tells you exactly what the test does and in what order.
+
+---
+
+## Add to your project
+
+```xml
+<!-- HTTP -->
+<dependency>
+    <groupId>dev.garlandframework</groupId>
+    <artifactId>garland-http</artifactId>
+    <version>1.0.0</version>
+</dependency>
+
+<!-- Postgres -->
+<dependency>
+    <groupId>dev.garlandframework</groupId>
+    <artifactId>garland-postgres</artifactId>
+    <version>1.0.0</version>
+</dependency>
+
+<!-- Kafka -->
+<dependency>
+    <groupId>dev.garlandframework</groupId>
+    <artifactId>garland-kafka</artifactId>
+    <version>1.0.0</version>
+</dependency>
+
+<!-- MongoDB -->
+<dependency>
+    <groupId>dev.garlandframework</groupId>
+    <artifactId>garland-mongodb</artifactId>
+    <version>1.0.0</version>
+</dependency>
+
+<!-- TestNG base class and logger (optional) -->
+<dependency>
+    <groupId>dev.garlandframework</groupId>
+    <artifactId>garland-testng</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+Or use the BOM to manage versions centrally:
+
+```xml
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>dev.garlandframework</groupId>
+            <artifactId>garland-bom</artifactId>
+            <version>1.0.0</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+```
+
+Requires Java 21.
 
 ---
 
@@ -16,6 +107,22 @@ UserDto created = Pipeline.given(buildCreateUserRequest())
         .then(httpClient.makeCall(201, UserDto.class))
         .execute();
 ```
+
+Each step is typed `Step<I, O>`. The output type of one step must match the input type of the next — enforced at compile time. A full E2E chain makes the data flow explicit:
+
+```
+HttpCallRequest  →  [httpClient.makeCall]  →  UserDto
+UserDto          →  [toEntity()]           →  UserEntity
+UserEntity       →  [db.findById()]        →  UserEntity   (asserted)
+
+UserDto          →  [toCreatedEvent()]     →  UserCreatedEvent
+UserCreatedEvent →  [kafka.consumeMatching]→  UserCreatedEvent  (asserted)
+
+UserDto          →  [toProjection()]       →  UserProjectionDoc
+UserProjectionDoc→  [mongo.findById()]     →  UserProjectionDoc (asserted)
+```
+
+The mapper steps (`toEntity()`, `toCreatedEvent()`, `toProjection()`) are plain `Step<A, B>` implementations — typically thin wrappers around a mapper class. They connect the HTTP response type to whatever the downstream client expects.
 
 `Step<I, O>` is a `@FunctionalInterface`: `(I input, PipelineContext ctx) -> O`. Pass method references, lambdas, or use `Step.lift(fn)` to adapt a plain `Function<I, O>`:
 
@@ -31,7 +138,7 @@ static Step<UserDto, UserEntity> toEntity() {
 
 ## Modules
 
-### HTTP — `org.modulartestorchestrator:http`
+### HTTP — `garland-http`
 
 `HttpTestClient` executes requests, asserts status codes, deserializes responses, and optionally matches the body — all in a single step.
 
@@ -49,31 +156,11 @@ ErrorDto error = Pipeline.given(badRequest())
         .execute();
 ```
 
-**Auth headers are stored in the client instance.** `withBearer`, `withHeader`, and `withApiKey` each return a new instance — the original is not modified. Never reassign the shared reference:
+**Auth headers are stored in the client instance.** `withBearer`, `withHeader`, and `withApiKey` each return a new instance — the original is not modified:
 
 ```java
-// correct
 HttpTestClient authed = http.withBearer(token);
-
-// wrong — breaks every other reference to http
-http = http.withBearer(token);
 ```
-
-**`storeBearer`** stores a token in the pipeline context so it is injected automatically by every subsequent `makeCall` in the same pipeline. Use this when the token comes from a login step inside the pipeline itself:
-
-```java
-// token is fetched and used within the same pipeline
-Pipeline.given(loginRequest())
-        .then(http.makeCall(200, TokenDto.class))
-        .then(HttpTestClient.storeBearer(TokenDto::accessToken))
-        .then(tokenDto -> buildCreateUserRequest())
-        .then(http.makeCall(201, UserDto.class))  // Authorization: Bearer <token> injected automatically
-        .execute();
-```
-
-If the token is already known before the pipeline starts, use `withBearer` on the client instead — it is simpler and does not require context. `storeBearer` is for the case where auth and the actual test call are part of the same flow.
-
-The client-level `withBearer` always takes priority over a context token — explicit client configuration cannot be accidentally overridden mid-pipeline.
 
 **`pollingCall`** retries until the response body matches — use for read-model endpoints populated by async consumers:
 
@@ -94,48 +181,42 @@ List<UserDto> users = Pipeline.given(listUsersRequest())
 
 ---
 
-### PostgreSQL — `org.modulartestorchestrator:postgres`
+### PostgreSQL — `garland-postgres`
 
-`DbTestClient` queries and asserts rows via Hibernate. All entity classes must be registered in `DbConfig` before construction — Hibernate validates the schema at startup.
+`PostgresTestClient` queries and asserts rows via Hibernate. All entity classes must be registered in `PostgresConfig` before construction.
 
 ```java
-DbConfig config = DbConfig.builder()
+PostgresConfig config = PostgresConfig.builder()
         .url("jdbc:postgresql://localhost:5432/mydb")
         .username("test").password("test")
         .entity(UserEntity.class)
         .build();
 
-DbTestClient db = new DbTestClient(
-        new HibernateWrapper(config),
+PostgresTestClient db = new PostgresTestClient(
+        new PostgresWrapper(config),
         RetryConfig.of(5, Duration.ofSeconds(1))
 );
 ```
 
 ```java
 // find by @Id field, assert matches (null fields ignored)
-db.findById().apply(expectedEntity, ctx);
+.then(db.findById())
 
 // find by all non-null fields — throws if more than one row matches
-db.findByFields().apply(expectedEntity, ctx);
+.then(db.findByFields())
 
 // count rows matching non-null fields
-long count = db.countByFields().apply(criteria, ctx);
+.then(db.countByFields())
 
-// assert row exists / does not exist by @Id
-db.existsById().apply(entity, ctx);
-db.notExistsById().apply(entity, ctx);
-
-// insert and assert stored result
-db.persist(expected).apply(DbRequest.persist(entity), ctx);
+// assert absence
+.then(db.notExistsById())
 ```
-
-Use `findById(Duration.ofMillis(1))` when timestamps are truncated by the JDBC driver.
 
 ---
 
-### MongoDB — `org.modulartestorchestrator:mongodb`
+### MongoDB — `garland-mongodb`
 
-`MongoTestClient` mirrors the `DbTestClient` API. Document classes must be mapped to collection names in `MongoConfig`.
+`MongoTestClient` mirrors the Postgres API. Document classes are mapped to collection names in `MongoConfig`.
 
 ```java
 MongoConfig config = MongoConfig.builder()
@@ -150,38 +231,30 @@ MongoTestClient mongo = new MongoTestClient(
 );
 ```
 
-MongoDB stores `Instant` with millisecond precision. If your documents contain nanosecond-precision timestamps, use:
-
-```java
-mongo.findById(Duration.ofMillis(1)).apply(expected, ctx);
-```
+MongoDB stores `Instant` with millisecond precision. Use `findById(Duration.ofMillis(1))` to absorb truncation in timestamp comparisons.
 
 ---
 
-### Kafka — `org.modulartestorchestrator:kafka`
+### Kafka — `garland-kafka`
 
-`KafkaTestClient` consumes, deserializes, and asserts messages. **Call `warmup()` before any consume call** — it seeks all partitions to the current end so the test does not pick up events from previous runs. Call it again between test sections.
+`KafkaTestClient` consumes, deserializes, and asserts messages. Call `warmup()` before any consume call — it seeks all partitions to the current end so the test does not pick up events from previous runs.
 
 ```java
 KafkaConfig config = KafkaConfig.builder()
         .bootstrapServers("localhost:9092")
         .topic("user-events")
-        .groupId(UUID.randomUUID().toString())  // always random — prevents offset reuse
+        .groupId(UUID.randomUUID().toString())
         .build();
 
 KafkaTestClient kafka = new KafkaTestClient(config,
         RetryConfig.of(10, Duration.ofSeconds(1)));
 
-kafka.warmup(); // call before consuming
+kafka.warmup();
 ```
 
 ```java
-// consume next record and assert it matches expected
-kafka.consume(UserCreatedEvent.class, expectedEvent).apply(input, ctx);
-
-// when other events may arrive before the expected one:
-// consumeMatching retries until a record matches, tolerating interleaved messages
-kafka.consumeMatching(UserCreatedEvent.class).apply(expectedEvent, ctx);
+// consume next record matching expected
+.then(kafka.consumeMatching(UserCreatedEvent.class))
 
 // publish
 Pipeline.given(KafkaMessage.of(event))
@@ -193,15 +266,15 @@ Pipeline.given(KafkaMessage.of(event))
 
 ## Fan-out: asserting multiple systems at once
 
-`Verify.allOf` runs all branches against the same input, collects every failure, then throws a single combined `AssertionError`. Chaining `.then()` calls stops at the first failure; `allOf` always reports all failing branches together.
+`Verify.allOf` runs all branches against the same input, collects every failure, then throws a single combined `AssertionError`. Sequential `.then()` stops at the first failure; `allOf` always reports all failing branches together.
 
 ```java
 Pipeline.given(createUserRequest())
         .then(http.makeCall(201, UserDto.class))
         .then(Verify.allOf(
-                db.findById(),
-                kafka.consumeMatching(UserCreatedEvent.class),
-                mongo.findById()
+                UserTestMapper.toEntity().andThen(db.findById()),
+                UserTestMapper.toCreatedEvent().andThen(kafka.consumeMatching(UserCreatedEvent.class)),
+                UserTestMapper.toProjection().andThen(mongo.findById())
         ))
         .execute();
 ```
@@ -210,12 +283,11 @@ Pipeline.given(createUserRequest())
 
 ## Retry
 
-`Retry.of(step, config)` wraps any `Step`. Each failed attempt is logged as a warning; after all attempts are exhausted the last throwable is rethrown as-is.
+`RetryConfig` controls retry behaviour for all test clients:
 
 ```java
-RetryConfig config = RetryConfig.of(10, Duration.ofSeconds(1));
-// or no delay:
-RetryConfig config = RetryConfig.attempts(5);
+RetryConfig.of(10, Duration.ofSeconds(1));  // 10 attempts, 1s delay
+RetryConfig.attempts(5);                    // 5 attempts, no delay
 ```
 
 All test clients accept a `RetryConfig` in their constructor that applies to all operations. Individual operations can override it inline.
@@ -227,7 +299,7 @@ All test clients accept a `RetryConfig` in their constructor that applies to all
 ```bash
 mvn clean install          # build + test
 mvn clean install -DskipTests
-mvn test -pl core          # run core unit tests only
+mvn test -pl garland-core  # run core unit tests only
 ```
 
 The `release` profile (`mvn package -Prelease`) produces sources JARs, Javadoc JARs, and GPG-signed artifacts for Maven Central.
