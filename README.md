@@ -78,6 +78,8 @@ Most integration test suites grow into unmaintainable collections of HTTP utilit
 </dependency>
 ```
 
+**Works with any test runner.** JUnit 5, TestNG, or plain Java — the pipeline DSL and all modules have no test framework dependency. `garland-testng` is optional and only adds a base class with structured lifecycle logging for TestNG users.
+
 Or use the BOM to manage versions centrally:
 
 ```xml
