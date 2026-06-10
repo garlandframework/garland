@@ -1,5 +1,7 @@
 # Garland
 
+[![CI](https://github.com/garlandframework/garland/actions/workflows/ci.yml/badge.svg)](https://github.com/garlandframework/garland/actions/workflows/ci.yml)
+
 A Java framework for writing integration tests as composable, type-safe pipelines.
 
 Each test step is a typed function `(I input, PipelineContext ctx) -> O`. Steps chain together with compile-time type enforcement — if the chain doesn't connect, it doesn't compile.
