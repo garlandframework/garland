@@ -151,7 +151,7 @@ HttpTestClient http = new HttpTestClient();
 
 // assert status + body match (null fields in expected are ignored)
 UserDto result = Pipeline.given(createUserRequest())
-        .then(http.makeCall(HttpCallResponse.of(201, expectedDto)))
+        .then(http.makeCall(new HttpCallResponse<>(201, Map.of(), expectedDto)))
         .execute();
 
 // assert status only, return deserialized body
