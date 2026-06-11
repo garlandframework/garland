@@ -23,6 +23,8 @@ Pipeline.given(TestUserRequests.createUser(expected))
 
 **[Demo project](https://github.com/garlandframework/garland-demo)** — a full working example with two Spring Boot microservices, Kafka, Postgres, and MongoDB.
 
+[![Watch the demo](https://img.youtube.com/vi/bN6O8ek2TjQ/0.jpg)](https://www.youtube.com/watch?v=bN6O8ek2TjQ)
+
 ---
 
 ## Why Garland
